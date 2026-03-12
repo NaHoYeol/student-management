@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_85zrQabdqXKL@ep-royal-forest-a12cjue4-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require\" npx prisma db push)"
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_85zrQabdqXKL@ep-royal-forest-a12cjue4-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require\" npx prisma db push)",
+      "Bash(npx prisma:*)"
     ]
   }
 }

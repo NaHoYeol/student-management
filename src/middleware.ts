@@ -1,9 +1,9 @@
-import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
 
-export default auth((req) => {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const user = req.auth?.user;
 
   // Public routes
   if (
@@ -14,8 +14,10 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
   // Redirect unauthenticated users to sign in
-  if (!user) {
+  if (!token) {
     const signInUrl = new URL("/auth/signin", req.url);
     signInUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(signInUrl);
@@ -23,20 +25,20 @@ export default auth((req) => {
 
   // Admin routes: only ADMIN role allowed
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/assignments")) {
-    if (user.role !== "ADMIN") {
+    if (token.role !== "ADMIN") {
       return NextResponse.redirect(new URL("/student/dashboard", req.url));
     }
   }
 
   // Student routes: only STUDENT role allowed
   if (pathname.startsWith("/student")) {
-    if (user.role !== "STUDENT") {
+    if (token.role !== "STUDENT") {
       return NextResponse.redirect(new URL("/admin/dashboard", req.url));
     }
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [

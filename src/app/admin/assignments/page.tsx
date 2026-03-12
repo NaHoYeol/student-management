@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -20,7 +20,7 @@ interface Assignment {
   questions: { questionNumber: number; correctAnswer: number; points: number }[];
 }
 
-export default function AssignmentsPage() {
+function AssignmentsContent() {
   const searchParams = useSearchParams();
   const assignmentId = searchParams.get("id");
   const [assignment, setAssignment] = useState<Assignment | null>(null);
@@ -124,5 +124,13 @@ export default function AssignmentsPage() {
         </table>
       </div>
     </div>
+  );
+}
+
+export default function AssignmentsPage() {
+  return (
+    <Suspense fallback={<p className="text-gray-500">로딩 중...</p>}>
+      <AssignmentsContent />
+    </Suspense>
   );
 }

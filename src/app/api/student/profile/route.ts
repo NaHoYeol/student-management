@@ -18,6 +18,7 @@ export async function GET() {
       grade: true,
       classDay: true,
       classTime: true,
+      instructorId: true,
     },
   });
 
@@ -39,7 +40,14 @@ export async function GET() {
     // Table may not exist yet
   }
 
-  return NextResponse.json({ profile: user, options });
+  // Get list of instructors (ADMIN users)
+  const instructors = await prisma.user.findMany({
+    where: { role: "ADMIN" },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: "asc" },
+  });
+
+  return NextResponse.json({ profile: user, options, instructors });
 }
 
 export async function PUT(req: NextRequest) {
@@ -49,12 +57,13 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { name, school, grade, classDay, classTime } = body as {
+  const { name, school, grade, classDay, classTime, instructorId } = body as {
     name?: string;
     school?: string;
     grade?: string;
     classDay?: string;
     classTime?: string;
+    instructorId?: string | null;
   };
 
   const user = await prisma.user.update({
@@ -65,6 +74,7 @@ export async function PUT(req: NextRequest) {
       ...(grade !== undefined && { grade }),
       ...(classDay !== undefined && { classDay }),
       ...(classTime !== undefined && { classTime }),
+      ...(instructorId !== undefined && { instructorId: instructorId || null }),
     },
     select: {
       id: true,
@@ -74,6 +84,7 @@ export async function PUT(req: NextRequest) {
       grade: true,
       classDay: true,
       classTime: true,
+      instructorId: true,
     },
   });
 

@@ -42,7 +42,7 @@ export default function SettingsPage() {
     setSaving(false);
   }
 
-  if (loading) return <p className="text-gray-900">로딩 중...</p>;
+  if (loading) return <p className="text-black">로딩 중...</p>;
 
   return (
     <div>
@@ -50,14 +50,14 @@ export default function SettingsPage() {
 
       <div className="max-w-lg rounded-lg bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">OpenAI API 키</h2>
-        <p className="mb-3 text-sm text-gray-900">
+        <p className="mb-3 text-sm text-black">
           개별 성적 분석 시 GPT-4o-mini를 사용한 피드백 생성에 필요합니다.
           키는 서버에만 저장되며 외부에 노출되지 않습니다.
         </p>
 
         {hasKey && (
           <div className="mb-3 flex items-center gap-2">
-            <span className="text-sm text-gray-900">현재 키:</span>
+            <span className="text-sm text-black">현재 키:</span>
             <code className="rounded bg-gray-100 px-2 py-1 text-sm">{masked}</code>
           </div>
         )}

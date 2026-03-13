@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { gradeSubmission } from "@/lib/grading";
 
-// PUT: Update submission answers and re-grade
+// PUT: Update submission answers and re-grade (only if resubmit approved by admin)
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -28,6 +28,14 @@ export async function PUT(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Check if resubmit is approved by admin
+  if (!submission.resubmitApproved) {
+    return NextResponse.json(
+      { error: "재제출이 승인되지 않았습니다. 강사에게 재제출 허용을 요청해 주세요." },
+      { status: 403 }
+    );
+  }
+
   const body = await req.json();
   const { answers } = body as {
     answers: { questionNumber: number; studentAnswer: number }[];
@@ -41,7 +49,7 @@ export async function PUT(
 
   const result = gradeSubmission(questions, answers);
 
-  // Delete old answers and create new ones, update score
+  // Delete old answers and create new ones, update score, reset resubmitApproved
   await prisma.$transaction([
     prisma.submissionAnswer.deleteMany({ where: { submissionId: id } }),
     prisma.submission.update({
@@ -50,6 +58,7 @@ export async function PUT(
         score: result.score,
         totalPoints: result.totalPoints,
         gradedAt: new Date(),
+        resubmitApproved: false,
         answers: {
           create: result.details.map((d) => ({
             questionNumber: d.questionNumber,

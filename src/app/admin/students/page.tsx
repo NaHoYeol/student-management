@@ -43,7 +43,7 @@ export default function StudentsPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  if (loading) return <p className="text-gray-900">로딩 중...</p>;
+  if (loading) return <p className="text-black">로딩 중...</p>;
 
   // Group by school + grade + day + time
   const groups = new Map<string, StudentData[]>();
@@ -61,7 +61,7 @@ export default function StudentsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">학생 관리</h1>
-        <p className="text-sm text-gray-900">전체 {students.length}명</p>
+        <p className="text-sm text-black">전체 {students.length}명</p>
       </div>
 
       {sortedKeys.map((key) => {
@@ -78,10 +78,10 @@ export default function StudentsPage() {
               <table className="w-full text-left text-sm">
                 <thead className="border-b bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 font-medium text-gray-900">이름</th>
-                    <th className="px-4 py-3 font-medium text-gray-900">이메일</th>
-                    <th className="px-4 py-3 font-medium text-gray-900">제출 수</th>
-                    <th className="px-4 py-3 font-medium text-gray-900">평균 점수</th>
+                    <th className="px-4 py-3 font-medium text-black">이름</th>
+                    <th className="px-4 py-3 font-medium text-black">이메일</th>
+                    <th className="px-4 py-3 font-medium text-black">제출 수</th>
+                    <th className="px-4 py-3 font-medium text-black">평균 점수</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -95,7 +95,7 @@ export default function StudentsPage() {
                           {s.name || "-"}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-gray-900">{s.email}</td>
+                      <td className="px-4 py-3 text-black">{s.email}</td>
                       <td className="px-4 py-3">{s.submissionCount}개</td>
                       <td className="px-4 py-3">
                         {s.avgScore !== null ? `${s.avgScore}점` : "-"}
@@ -110,7 +110,7 @@ export default function StudentsPage() {
       })}
 
       {students.length === 0 && (
-        <div className="rounded-lg bg-white px-4 py-12 text-center text-gray-900 shadow-sm">
+        <div className="rounded-lg bg-white px-4 py-12 text-center text-black shadow-sm">
           등록된 학생이 없습니다.
         </div>
       )}

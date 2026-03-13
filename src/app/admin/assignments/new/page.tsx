@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { distributePoints } from "@/lib/distribute-points";
 
@@ -8,6 +8,21 @@ interface QuestionInput {
   questionNumber: number;
   correctAnswer: number;
   points: number;
+}
+
+interface StudentData {
+  id: string;
+  name: string | null;
+  email: string;
+  school: string | null;
+  grade: string | null;
+  classDay: string | null;
+  classTime: string | null;
+}
+
+function groupLabel(s: StudentData): string {
+  const parts = [s.school, s.grade, s.classDay ? `${s.classDay}요일` : null, s.classTime].filter(Boolean);
+  return parts.length > 0 ? parts.join(" / ") : "미배정";
 }
 
 export default function NewAssignmentPage() {
@@ -19,6 +34,56 @@ export default function NewAssignmentPage() {
   const [step, setStep] = useState<"info" | "answers">("info");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // 할당 대상 관련
+  const [targetType, setTargetType] = useState<"ALL" | "CLASS" | "INDIVIDUAL">("ALL");
+  const [students, setStudents] = useState<StudentData[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<Set<string>>(new Set());
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
+  // 학생 목록 로드 (반/개별 선택 시)
+  useEffect(() => {
+    if (targetType !== "ALL" && students.length === 0) {
+      setLoadingStudents(true);
+      fetch("/api/admin/students")
+        .then((r) => r.json())
+        .then((data) => {
+          setStudents(data);
+          setLoadingStudents(false);
+        })
+        .catch(() => setLoadingStudents(false));
+    }
+  }, [targetType, students.length]);
+
+  // 반 목록 계산
+  const classGroups = (() => {
+    const groups = new Map<string, StudentData[]>();
+    for (const s of students) {
+      const key = groupLabel(s);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(s);
+    }
+    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  })();
+
+  function toggleClass(className: string) {
+    setSelectedClasses((prev) => {
+      const next = new Set(prev);
+      if (next.has(className)) next.delete(className);
+      else next.add(className);
+      return next;
+    });
+  }
+
+  function toggleStudent(studentId: string) {
+    setSelectedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
+  }
 
   function downloadSampleCSV() {
     const rows = ["문항번호,정답,배점"];
@@ -124,10 +189,23 @@ export default function NewAssignmentPage() {
     setSubmitting(true);
     setError("");
 
+    const payload: Record<string, unknown> = {
+      title,
+      description,
+      questions,
+      targetType,
+    };
+
+    if (targetType === "CLASS") {
+      payload.targetClasses = Array.from(selectedClasses);
+    } else if (targetType === "INDIVIDUAL") {
+      payload.targetStudentIds = Array.from(selectedStudentIds);
+    }
+
     const res = await fetch("/api/assignments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, description, questions }),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
@@ -137,7 +215,7 @@ export default function NewAssignmentPage() {
       return;
     }
 
-    router.push("/admin/dashboard");
+    router.push("/admin/assignments");
   }
 
   if (step === "info") {
@@ -153,7 +231,7 @@ export default function NewAssignmentPage() {
 
         <div className="rounded-lg bg-white p-6 shadow-sm">
           <div className="mb-4">
-            <label className="mb-1 block text-sm font-medium text-gray-900">
+            <label className="mb-1 block text-sm font-medium text-black">
               과제 제목 *
             </label>
             <input
@@ -166,7 +244,7 @@ export default function NewAssignmentPage() {
           </div>
 
           <div className="mb-4">
-            <label className="mb-1 block text-sm font-medium text-gray-900">
+            <label className="mb-1 block text-sm font-medium text-black">
               설명 (선택)
             </label>
             <textarea
@@ -178,7 +256,7 @@ export default function NewAssignmentPage() {
           </div>
 
           <div className="mb-6">
-            <label className="mb-1 block text-sm font-medium text-gray-900">
+            <label className="mb-1 block text-sm font-medium text-black">
               문항 수
             </label>
             <input
@@ -193,9 +271,109 @@ export default function NewAssignmentPage() {
             />
           </div>
 
+          {/* 할당 대상 설정 */}
+          <div className="mb-6">
+            <label className="mb-2 block text-sm font-medium text-black">
+              할당 대상
+            </label>
+            <div className="flex gap-2 mb-3">
+              {([
+                { value: "ALL", label: "전체" },
+                { value: "CLASS", label: "반별" },
+                { value: "INDIVIDUAL", label: "개별 학생" },
+              ] as { value: typeof targetType; label: string }[]).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setTargetType(opt.value)}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium ${
+                    targetType === opt.value
+                      ? "bg-blue-600 text-white"
+                      : "border border-gray-300 text-black hover:bg-gray-50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {targetType === "CLASS" && (
+              <div className="rounded-lg border p-4">
+                <p className="mb-2 text-xs text-black">할당할 반을 선택하세요:</p>
+                {loadingStudents ? (
+                  <p className="text-sm text-black">학생 목록 로딩 중...</p>
+                ) : classGroups.length === 0 ? (
+                  <p className="text-sm text-black">등록된 학생이 없습니다.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {classGroups.map(([className, classStudents]) => (
+                      <label
+                        key={className}
+                        className="flex items-center gap-2 rounded p-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedClasses.has(className)}
+                          onChange={() => toggleClass(className)}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm text-black">{className}</span>
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                          {classStudents.length}명
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {selectedClasses.size > 0 && (
+                  <p className="mt-2 text-xs text-green-600">
+                    {selectedClasses.size}개 반 선택됨
+                  </p>
+                )}
+              </div>
+            )}
+
+            {targetType === "INDIVIDUAL" && (
+              <div className="rounded-lg border p-4">
+                <p className="mb-2 text-xs text-black">할당할 학생을 선택하세요:</p>
+                {loadingStudents ? (
+                  <p className="text-sm text-black">학생 목록 로딩 중...</p>
+                ) : students.length === 0 ? (
+                  <p className="text-sm text-black">등록된 학생이 없습니다.</p>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto space-y-1">
+                    {students.map((s) => (
+                      <label
+                        key={s.id}
+                        className="flex items-center gap-2 rounded p-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedStudentIds.has(s.id)}
+                          onChange={() => toggleStudent(s.id)}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm text-black">
+                          {s.name || s.email}
+                        </span>
+                        <span className="text-xs text-black">
+                          {groupLabel(s)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {selectedStudentIds.size > 0 && (
+                  <p className="mt-2 text-xs text-green-600">
+                    {selectedStudentIds.size}명 선택됨
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="mb-6 rounded-lg border-2 border-dashed border-gray-300 p-4">
             <div className="mb-2 flex items-center justify-between">
-              <label className="block text-sm font-medium text-gray-900">
+              <label className="block text-sm font-medium text-black">
                 CSV 파일로 정답 업로드 (선택)
               </label>
               <button
@@ -210,9 +388,9 @@ export default function NewAssignmentPage() {
               type="file"
               accept=".csv"
               onChange={handleCSVUpload}
-              className="block w-full text-sm text-gray-900 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-600 hover:file:bg-blue-100"
+              className="block w-full text-sm text-black file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-600 hover:file:bg-blue-100"
             />
-            <p className="mt-2 text-xs text-gray-900">
+            <p className="mt-2 text-xs text-black">
               양식: 문항번호,정답,배점 (예: 1,3,2) — 배점 생략 시 총 100점 자동 분배, 첫 행 헤더 자동 무시
             </p>
             {questions.length > 0 && (
@@ -238,7 +416,7 @@ export default function NewAssignmentPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-2 text-2xl font-bold">정답 입력</h1>
-      <p className="mb-6 text-sm text-gray-900">
+      <p className="mb-6 text-sm text-black">
         {title} — {questionCount}문항
       </p>
 
@@ -252,7 +430,7 @@ export default function NewAssignmentPage() {
         <div className="grid grid-cols-4 gap-3 sm:grid-cols-5">
           {questions.map((q, i) => (
             <div key={q.questionNumber} className="text-center">
-              <label className="mb-1 block text-xs font-medium text-gray-900">
+              <label className="mb-1 block text-xs font-medium text-black">
                 {q.questionNumber}번
               </label>
               <select
@@ -273,7 +451,7 @@ export default function NewAssignmentPage() {
         <div className="mt-6 flex gap-3">
           <button
             onClick={() => setStep("info")}
-            className="rounded-lg border px-6 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+            className="rounded-lg border px-6 py-2 text-sm font-medium text-black hover:bg-gray-50"
           >
             이전
           </button>

@@ -24,6 +24,10 @@ model User {
   classDay  String?
   classTime String?
 
+  instructorId String?
+  instructor   User?  @relation("InstructorStudents", fields: [instructorId], references: [id])
+  students     User[] @relation("InstructorStudents")
+
   accounts    Account[]
   sessions    Session[]
   assignments Assignment[] @relation("CreatedAssignments")
@@ -78,6 +82,10 @@ model Assignment {
   analysisPublished Boolean @default(false)
   examContent       String? @db.Text
 
+  targetType       String  @default("ALL")
+  targetClasses    String? @db.Text
+  targetStudentIds String? @db.Text
+
   createdById String
   createdBy   User   @relation("CreatedAssignments", fields: [createdById], references: [id])
 
@@ -111,6 +119,7 @@ model Submission {
   gradedAt     DateTime?
   isAgent      Boolean   @default(false)
   agentGrade   Int?
+  resubmitApproved Boolean @default(false)
 
   student    User               @relation(fields: [studentId], references: [id])
   assignment Assignment         @relation(fields: [assignmentId], references: [id])

@@ -9,6 +9,13 @@ interface Profile {
   grade: string | null;
   classDay: string | null;
   classTime: string | null;
+  instructorId: string | null;
+}
+
+interface Instructor {
+  id: string;
+  name: string | null;
+  email: string;
 }
 
 type Options = Record<string, string[]>;
@@ -37,7 +44,7 @@ function SelectOrInput({
 
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-gray-900">{label}</label>
+      <label className="mb-1 block text-sm font-medium text-black">{label}</label>
       {mode === "select" ? (
         <>
           <select
@@ -72,7 +79,7 @@ function SelectOrInput({
             <button
               type="button"
               onClick={() => { setMode("select"); onChange(""); }}
-              className="shrink-0 rounded-lg border px-3 py-2 text-xs text-gray-900 hover:bg-gray-50"
+              className="shrink-0 rounded-lg border px-3 py-2 text-xs text-black hover:bg-gray-50"
             >
               목록에서 선택
             </button>
@@ -86,6 +93,7 @@ function SelectOrInput({
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [options, setOptions] = useState<Options>({ school: [], grade: [], classDay: [], classTime: [] });
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -95,18 +103,21 @@ export default function ProfilePage() {
   const [grade, setGrade] = useState("");
   const [classDay, setClassDay] = useState("");
   const [classTime, setClassTime] = useState("");
+  const [instructorId, setInstructorId] = useState("");
 
   useEffect(() => {
     fetch("/api/student/profile")
       .then((r) => r.json())
-      .then((data: { profile: Profile; options: Options }) => {
+      .then((data: { profile: Profile; options: Options; instructors: Instructor[] }) => {
         setProfile(data.profile);
         setOptions(data.options);
+        setInstructors(data.instructors || []);
         setName(data.profile.name ?? "");
         setSchool(data.profile.school ?? "");
         setGrade(data.profile.grade ?? "");
         setClassDay(data.profile.classDay ?? "");
         setClassTime(data.profile.classTime ?? "");
+        setInstructorId(data.profile.instructorId ?? "");
         setLoading(false);
       });
   }, []);
@@ -117,7 +128,7 @@ export default function ProfilePage() {
     const res = await fetch("/api/student/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, school, grade, classDay, classTime }),
+      body: JSON.stringify({ name, school, grade, classDay, classTime, instructorId: instructorId || null }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -128,7 +139,7 @@ export default function ProfilePage() {
     setSaving(false);
   }
 
-  if (loading) return <p className="text-gray-900">로딩 중...</p>;
+  if (loading) return <p className="text-black">로딩 중...</p>;
 
   return (
     <div className="mx-auto max-w-lg">
@@ -136,14 +147,14 @@ export default function ProfilePage() {
 
       <div className="space-y-4 rounded-lg bg-white p-6 shadow-sm">
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-900">이메일</label>
-          <p className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-900">
+          <label className="mb-1 block text-sm font-medium text-black">이메일</label>
+          <p className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-black">
             {profile?.email}
           </p>
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-900">이름</label>
+          <label className="mb-1 block text-sm font-medium text-black">이름</label>
           <input
             type="text"
             value={name}
@@ -151,6 +162,23 @@ export default function ProfilePage() {
             placeholder="이름을 입력해 주세요"
             className="w-full rounded-lg border px-3 py-2 text-sm text-black focus:border-blue-500 focus:outline-none"
           />
+        </div>
+
+        {/* 담당 강사 선택 */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-black">담당 강사</label>
+          <select
+            value={instructorId}
+            onChange={(e) => setInstructorId(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 text-sm text-black focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">선택 안 함</option>
+            {instructors.map((inst) => (
+              <option key={inst.id} value={inst.id}>
+                {inst.name || inst.email}
+              </option>
+            ))}
+          </select>
         </div>
 
         <SelectOrInput

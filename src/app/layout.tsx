@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "학생 과제 관리 시스템",
   description: "학원 강사를 위한 학생 과제 관리 및 자동 채점 시스템",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
 };
 
 export default function RootLayout({

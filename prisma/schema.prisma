@@ -19,10 +19,16 @@ model User {
   image         String?
   role          Role      @default(STUDENT)
 
+  school    String?
+  grade     String?
+  classDay  String?
+  classTime String?
+
   accounts    Account[]
   sessions    Session[]
   assignments Assignment[] @relation("CreatedAssignments")
   submissions Submission[]
+  analysisResults StudentAnalysisResult[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -68,13 +74,16 @@ model Assignment {
   title          String
   description    String?
   totalQuestions Int
-  isActive       Boolean @default(true)
+  isActive          Boolean @default(true)
+  analysisPublished Boolean @default(false)
+  examContent       String? @db.Text
 
   createdById String
   createdBy   User   @relation("CreatedAssignments", fields: [createdById], references: [id])
 
   questions   Question[]
   submissions Submission[]
+  analysisResults StudentAnalysisResult[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -100,12 +109,28 @@ model Submission {
   totalPoints  Int?
   submittedAt  DateTime  @default(now())
   gradedAt     DateTime?
+  isAgent      Boolean   @default(false)
+  agentGrade   Int?
 
   student    User               @relation(fields: [studentId], references: [id])
   assignment Assignment         @relation(fields: [assignmentId], references: [id])
   answers    SubmissionAnswer[]
 
   @@unique([studentId, assignmentId])
+}
+
+model ClassOption {
+  id    String @id @default(cuid())
+  type  String // "school" | "grade" | "classDay" | "classTime"
+  value String
+
+  @@unique([type, value])
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
 }
 
 model SubmissionAnswer {
@@ -118,4 +143,29 @@ model SubmissionAnswer {
   submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
   @@unique([submissionId, questionNumber])
+}
+
+model StudentAnalysisResult {
+  id             String   @id @default(cuid())
+  studentId      String
+  assignmentId   String
+  score          Int
+  totalPoints    Int
+  correctRate    Int
+  grade          Int
+  rank           Int
+  totalStudents  Int
+  percentile     Float
+  weakPattern    String?
+  feedback       String?  @db.Text
+  questionBreakdown String? @db.Text
+  wrongQuestions    String? @db.Text
+
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, assignmentId])
 }

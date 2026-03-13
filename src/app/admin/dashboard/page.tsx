@@ -24,6 +24,18 @@ export default function AdminDashboard() {
       });
   }, []);
 
+  async function handleDelete(id: string, title: string) {
+    if (!confirm(`"${title}" 과제를 삭제하시겠습니까?\n관련된 모든 제출 데이터도 함께 삭제됩니다.`)) {
+      return;
+    }
+    const res = await fetch(`/api/assignments/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setAssignments((prev) => prev.filter((a) => a.id !== id));
+    } else {
+      alert("삭제에 실패했습니다.");
+    }
+  }
+
   if (loading) {
     return <p className="text-gray-500">로딩 중...</p>;
   }
@@ -66,6 +78,7 @@ export default function AdminDashboard() {
               <th className="px-4 py-3 font-medium text-gray-600">문항 수</th>
               <th className="px-4 py-3 font-medium text-gray-600">제출 수</th>
               <th className="px-4 py-3 font-medium text-gray-600">생성일</th>
+              <th className="px-4 py-3 font-medium text-gray-600"></th>
             </tr>
           </thead>
           <tbody>
@@ -84,11 +97,19 @@ export default function AdminDashboard() {
                 <td className="px-4 py-3 text-gray-500">
                   {new Date(a.createdAt).toLocaleDateString("ko-KR")}
                 </td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => handleDelete(a.id, a.title)}
+                    className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50 hover:text-red-700"
+                  >
+                    삭제
+                  </button>
+                </td>
               </tr>
             ))}
             {assignments.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
                   아직 등록된 과제가 없습니다.
                 </td>
               </tr>

@@ -24,12 +24,33 @@ export function Nav() {
           >
             {isAdmin ? "과제 관리" : "과제 목록"}
           </Link>
-          {isAdmin && (
+          {isAdmin ? (
+            <>
+              <Link
+                href="/admin/students"
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                학생 관리
+              </Link>
+              <Link
+                href="/admin/class-options"
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                반 편성
+              </Link>
+              <Link
+                href="/admin/settings"
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                설정
+              </Link>
+            </>
+          ) : (
             <Link
-              href="/admin/students"
+              href="/student/profile"
               className="text-sm text-gray-600 hover:text-gray-900"
             >
-              학생 관리
+              내 정보
             </Link>
           )}
         </div>

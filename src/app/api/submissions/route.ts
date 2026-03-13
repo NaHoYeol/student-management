@@ -12,26 +12,50 @@ export async function GET(req: NextRequest) {
 
   const assignmentId = req.nextUrl.searchParams.get("assignmentId");
 
-  const where =
-    session.user.role === "ADMIN"
-      ? assignmentId
-        ? { assignmentId }
-        : {}
-      : assignmentId
-        ? { studentId: session.user.id, assignmentId }
-        : { studentId: session.user.id };
+  try {
+    const where =
+      session.user.role === "ADMIN"
+        ? assignmentId
+          ? { assignmentId, isAgent: false }
+          : { isAgent: false }
+        : assignmentId
+          ? { studentId: session.user.id, assignmentId, isAgent: false }
+          : { studentId: session.user.id, isAgent: false };
 
-  const submissions = await prisma.submission.findMany({
-    where,
-    include: {
-      student: { select: { id: true, name: true, email: true } },
-      assignment: { select: { id: true, title: true, totalQuestions: true } },
-      answers: { orderBy: { questionNumber: "asc" } },
-    },
-    orderBy: { submittedAt: "desc" },
-  });
+    const submissions = await prisma.submission.findMany({
+      where,
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        assignment: { select: { id: true, title: true, totalQuestions: true } },
+        answers: { orderBy: { questionNumber: "asc" } },
+      },
+      orderBy: { submittedAt: "desc" },
+    });
 
-  return NextResponse.json(submissions);
+    return NextResponse.json(submissions);
+  } catch {
+    // Fallback: query without isAgent filter (in case column doesn't exist yet)
+    const where =
+      session.user.role === "ADMIN"
+        ? assignmentId
+          ? { assignmentId }
+          : {}
+        : assignmentId
+          ? { studentId: session.user.id, assignmentId }
+          : { studentId: session.user.id };
+
+    const submissions = await prisma.submission.findMany({
+      where,
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        assignment: { select: { id: true, title: true, totalQuestions: true } },
+        answers: { orderBy: { questionNumber: "asc" } },
+      },
+      orderBy: { submittedAt: "desc" },
+    });
+
+    return NextResponse.json(submissions);
+  }
 }
 
 // POST: Submit answers and auto-grade

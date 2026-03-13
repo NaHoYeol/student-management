@@ -14,17 +14,38 @@ export async function GET() {
       id: true,
       name: true,
       email: true,
+      school: true,
+      grade: true,
+      classDay: true,
+      classTime: true,
+      _count: { select: { submissions: true } },
       submissions: {
-        select: {
-          id: true,
-          score: true,
-          totalPoints: true,
-          assignment: { select: { title: true } },
-        },
+        select: { score: true, totalPoints: true },
       },
     },
-    orderBy: { name: "asc" },
+    orderBy: [{ school: "asc" }, { grade: "asc" }, { classDay: "asc" }, { classTime: "asc" }, { name: "asc" }],
   });
 
-  return NextResponse.json(students);
+  const result = students.map((s) => {
+    const avgScore =
+      s.submissions.length > 0
+        ? Math.round(
+            s.submissions.reduce((sum, sub) => sum + (sub.score ?? 0), 0) /
+              s.submissions.length
+          )
+        : null;
+    return {
+      id: s.id,
+      name: s.name,
+      email: s.email,
+      school: s.school,
+      grade: s.grade,
+      classDay: s.classDay,
+      classTime: s.classTime,
+      submissionCount: s._count.submissions,
+      avgScore,
+    };
+  });
+
+  return NextResponse.json(result);
 }

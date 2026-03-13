@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 interface AssignmentDetail {
   id: string;
@@ -20,10 +20,12 @@ interface GradingResult {
   }[];
 }
 
-export default function SubmitAnswerPage() {
+function SubmitAnswerContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const assignmentId = params.id as string;
+  const isEditMode = searchParams.get("edit") === "true";
 
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -31,15 +33,38 @@ export default function SubmitAnswerPage() {
   const [result, setResult] = useState<GradingResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/assignments/${assignmentId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setAssignment(data);
-        setLoading(false);
-      });
-  }, [assignmentId]);
+    const promises: Promise<unknown>[] = [
+      fetch(`/api/assignments/${assignmentId}`).then((r) => r.json()),
+    ];
+
+    if (isEditMode) {
+      promises.push(
+        fetch(`/api/submissions?assignmentId=${assignmentId}`).then((r) => r.json())
+      );
+    }
+
+    Promise.all(promises).then(([assignmentData, submissionsData]) => {
+      setAssignment(assignmentData as AssignmentDetail);
+
+      if (isEditMode && Array.isArray(submissionsData) && submissionsData.length > 0) {
+        const sub = submissionsData[0] as {
+          id: string;
+          answers: { questionNumber: number; studentAnswer: number }[];
+        };
+        setSubmissionId(sub.id);
+        const existingAnswers: Record<number, number> = {};
+        sub.answers.forEach((a) => {
+          existingAnswers[a.questionNumber] = a.studentAnswer;
+        });
+        setAnswers(existingAnswers);
+      }
+
+      setLoading(false);
+    });
+  }, [assignmentId, isEditMode]);
 
   function updateAnswer(questionNumber: number, value: number) {
     setAnswers((prev) => ({ ...prev, [questionNumber]: value }));
@@ -61,17 +86,22 @@ export default function SubmitAnswerPage() {
     setSubmitting(true);
     setError("");
 
-    const res = await fetch("/api/submissions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        assignmentId,
-        answers: Object.entries(answers).map(([num, ans]) => ({
-          questionNumber: parseInt(num),
-          studentAnswer: ans,
-        })),
-      }),
-    });
+    const answerPayload = Object.entries(answers).map(([num, ans]) => ({
+      questionNumber: parseInt(num),
+      studentAnswer: ans,
+    }));
+
+    const res = isEditMode && submissionId
+      ? await fetch(`/api/submissions/${submissionId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answers: answerPayload }),
+        })
+      : await fetch("/api/submissions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assignmentId, answers: answerPayload }),
+        });
 
     const data = await res.json();
 
@@ -138,8 +168,11 @@ export default function SubmitAnswerPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-2 text-2xl font-bold">{assignment.title}</h1>
+      <h1 className="mb-2 text-2xl font-bold">
+        {isEditMode ? "답안 수정" : assignment.title}
+      </h1>
       <p className="mb-6 text-sm text-gray-500">
+        {isEditMode ? `${assignment.title} — ` : ""}
         {assignment.totalQuestions}문항 | 각 문항의 답을 선택해 주세요 (1~5)
       </p>
 
@@ -184,10 +217,18 @@ export default function SubmitAnswerPage() {
             disabled={submitting}
             className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {submitting ? "제출 중..." : "답안 제출"}
+            {submitting ? "제출 중..." : isEditMode ? "답안 수정" : "답안 제출"}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SubmitAnswerPage() {
+  return (
+    <Suspense fallback={<p className="text-gray-500">로딩 중...</p>}>
+      <SubmitAnswerContent />
+    </Suspense>
   );
 }

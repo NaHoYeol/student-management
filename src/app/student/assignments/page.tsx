@@ -9,6 +9,7 @@ interface AssignmentListItem {
   description: string | null;
   totalQuestions: number;
   createdAt: string;
+  analysisPublished: boolean;
   createdBy: { name: string | null };
 }
 
@@ -58,9 +59,33 @@ export default function StudentAssignmentsPage() {
                 </p>
               </div>
               {done ? (
-                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-                  제출 완료
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                    제출 완료
+                  </span>
+                  <Link
+                    href={`/student/assignments/${a.id}?edit=true`}
+                    className="rounded-lg border border-blue-600 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                  >
+                    수정
+                  </Link>
+                  {a.analysisPublished && (
+                    <>
+                      <Link
+                        href={`/student/assignments/analysis?id=${a.id}`}
+                        className="rounded-lg border border-purple-600 px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50"
+                      >
+                        분석 결과
+                      </Link>
+                      <Link
+                        href={`/student/assignments/my-analysis?id=${a.id}`}
+                        className="rounded-lg border border-green-600 px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50"
+                      >
+                        내 분석
+                      </Link>
+                    </>
+                  )}
+                </div>
               ) : (
                 <Link
                   href={`/student/assignments/${a.id}`}

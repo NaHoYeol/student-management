@@ -9,14 +9,14 @@ export default function SignInPage() {
         <h1 className="mb-2 text-center text-2xl font-bold text-gray-900">
           로그인
         </h1>
-        <p className="mb-8 text-center text-sm text-gray-500">
+        <p className="mb-8 text-center text-sm text-gray-900">
           소셜 계정으로 간편하게 로그인하세요
         </p>
 
         <div className="flex flex-col gap-3">
           <button
             onClick={() => signIn("google", { callbackUrl: "/" })}
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-900 transition hover:bg-gray-50"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -50,7 +50,7 @@ export default function SignInPage() {
           </button>
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-6 text-center text-xs text-gray-900">
           로그인 시 최소한의 프로필 정보(이름, 이메일)만 수집됩니다.
         </p>
       </div>

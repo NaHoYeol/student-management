@@ -67,19 +67,19 @@ export default function ClassOptionsPage() {
     if (res.ok) loadOptions();
   }
 
-  if (loading) return <p className="text-gray-500">로딩 중...</p>;
+  if (loading) return <p className="text-gray-900">로딩 중...</p>;
 
   return (
     <div>
       <h1 className="mb-2 text-2xl font-bold">반 편성 선택지 관리</h1>
-      <p className="mb-6 text-sm text-gray-500">
+      <p className="mb-6 text-sm text-gray-900">
         학생들이 프로필에서 선택할 수 있는 항목을 관리합니다. 여기에 없는 값은 학생이 직접 입력합니다.
       </p>
 
       <div className="grid gap-6 sm:grid-cols-2">
         {FIELD_ORDER.map((type) => (
           <div key={type} className="rounded-lg bg-white p-5 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold text-gray-700">
+            <h2 className="mb-3 text-sm font-semibold text-gray-900">
               {FIELD_LABELS[type]}
             </h2>
 
@@ -104,17 +104,17 @@ export default function ClassOptionsPage() {
 
             <div className="flex flex-wrap gap-2">
               {options[type].length === 0 && (
-                <p className="text-xs text-gray-400">아직 등록된 항목이 없습니다.</p>
+                <p className="text-xs text-gray-900">아직 등록된 항목이 없습니다.</p>
               )}
               {options[type].map((v) => (
                 <span
                   key={v}
-                  className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
+                  className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-900"
                 >
                   {v}
                   <button
                     onClick={() => handleDelete(type, v)}
-                    className="ml-0.5 text-gray-400 hover:text-red-500"
+                    className="ml-0.5 text-gray-900 hover:text-red-500"
                     title="삭제"
                   >
                     &times;

@@ -24,7 +24,7 @@ export default function StudentDashboard() {
       });
   }, []);
 
-  if (loading) return <p className="text-gray-500">로딩 중...</p>;
+  if (loading) return <p className="text-gray-900">로딩 중...</p>;
 
   const totalSubmitted = submissions.length;
   const avgScore =
@@ -49,15 +49,15 @@ export default function StudentDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-lg bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-500">제출한 과제</p>
+          <p className="text-sm text-gray-900">제출한 과제</p>
           <p className="text-3xl font-bold">{totalSubmitted}개</p>
         </div>
         <div className="rounded-lg bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-500">평균 점수</p>
+          <p className="text-sm text-gray-900">평균 점수</p>
           <p className="text-3xl font-bold">{avgScore}</p>
         </div>
         <div className="rounded-lg bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-500">진척도</p>
+          <p className="text-sm text-gray-900">진척도</p>
           <p className="text-3xl font-bold text-green-600">
             {totalSubmitted > 0 ? "진행 중" : "시작 전"}
           </p>
@@ -69,10 +69,10 @@ export default function StudentDashboard() {
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>
-              <th className="px-4 py-3 font-medium text-gray-600">과제명</th>
-              <th className="px-4 py-3 font-medium text-gray-600">점수</th>
-              <th className="px-4 py-3 font-medium text-gray-600">정답률</th>
-              <th className="px-4 py-3 font-medium text-gray-600">제출일</th>
+              <th className="px-4 py-3 font-medium text-gray-900">과제명</th>
+              <th className="px-4 py-3 font-medium text-gray-900">점수</th>
+              <th className="px-4 py-3 font-medium text-gray-900">정답률</th>
+              <th className="px-4 py-3 font-medium text-gray-900">제출일</th>
             </tr>
           </thead>
           <tbody>
@@ -88,14 +88,14 @@ export default function StudentDashboard() {
                     : 0}
                   %
                 </td>
-                <td className="px-4 py-3 text-gray-500">
+                <td className="px-4 py-3 text-gray-900">
                   {new Date(s.submittedAt).toLocaleDateString("ko-KR")}
                 </td>
               </tr>
             ))}
             {submissions.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={4} className="px-4 py-8 text-center text-gray-900">
                   아직 제출한 과제가 없습니다.
                 </td>
               </tr>

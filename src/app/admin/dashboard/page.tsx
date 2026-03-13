@@ -37,7 +37,7 @@ export default function AdminDashboard() {
   }
 
   if (loading) {
-    return <p className="text-gray-500">로딩 중...</p>;
+    return <p className="text-gray-900">로딩 중...</p>;
   }
 
   return (
@@ -54,17 +54,17 @@ export default function AdminDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-lg bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-500">전체 과제</p>
+          <p className="text-sm text-gray-900">전체 과제</p>
           <p className="text-3xl font-bold">{assignments.length}</p>
         </div>
         <div className="rounded-lg bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-500">총 제출 수</p>
+          <p className="text-sm text-gray-900">총 제출 수</p>
           <p className="text-3xl font-bold">
             {assignments.reduce((sum, a) => sum + a._count.submissions, 0)}
           </p>
         </div>
         <div className="rounded-lg bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-500">활성 과제</p>
+          <p className="text-sm text-gray-900">활성 과제</p>
           <p className="text-3xl font-bold">{assignments.length}</p>
         </div>
       </div>
@@ -74,11 +74,11 @@ export default function AdminDashboard() {
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>
-              <th className="px-4 py-3 font-medium text-gray-600">제목</th>
-              <th className="px-4 py-3 font-medium text-gray-600">문항 수</th>
-              <th className="px-4 py-3 font-medium text-gray-600">제출 수</th>
-              <th className="px-4 py-3 font-medium text-gray-600">생성일</th>
-              <th className="px-4 py-3 font-medium text-gray-600"></th>
+              <th className="px-4 py-3 font-medium text-gray-900">제목</th>
+              <th className="px-4 py-3 font-medium text-gray-900">문항 수</th>
+              <th className="px-4 py-3 font-medium text-gray-900">제출 수</th>
+              <th className="px-4 py-3 font-medium text-gray-900">생성일</th>
+              <th className="px-4 py-3 font-medium text-gray-900"></th>
             </tr>
           </thead>
           <tbody>
@@ -94,7 +94,7 @@ export default function AdminDashboard() {
                 </td>
                 <td className="px-4 py-3">{a.totalQuestions}문항</td>
                 <td className="px-4 py-3">{a._count.submissions}명</td>
-                <td className="px-4 py-3 text-gray-500">
+                <td className="px-4 py-3 text-gray-900">
                   {new Date(a.createdAt).toLocaleDateString("ko-KR")}
                 </td>
                 <td className="px-4 py-3">
@@ -109,7 +109,7 @@ export default function AdminDashboard() {
             ))}
             {assignments.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-900">
                   아직 등록된 과제가 없습니다.
                 </td>
               </tr>

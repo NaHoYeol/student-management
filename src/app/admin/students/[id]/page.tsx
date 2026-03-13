@@ -135,7 +135,7 @@ export default function StudentDetailPage() {
     setAnalysisLoading(false);
   }
 
-  if (loading) return <p className="text-gray-500">로딩 중...</p>;
+  if (loading) return <p className="text-gray-900">로딩 중...</p>;
   if (!student) return <p className="text-red-500">학생을 찾을 수 없습니다.</p>;
 
   const avgScore =
@@ -175,7 +175,7 @@ export default function StudentDetailPage() {
           <div className="space-y-3">
             <h2 className="text-lg font-bold">학생 정보 수정</h2>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">이름</label>
+              <label className="mb-1 block text-xs font-medium text-gray-900">이름</label>
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
@@ -198,7 +198,7 @@ export default function StudentDetailPage() {
               </button>
               <button
                 onClick={() => setEditing(false)}
-                className="rounded-lg border px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                className="rounded-lg border px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
               >
                 취소
               </button>
@@ -209,7 +209,7 @@ export default function StudentDetailPage() {
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-2xl font-bold">{student.name || student.email}</h1>
-                <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-500">
+                <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-900">
                   <span>{student.email}</span>
                   <span>{classLabel}</span>
                 </div>
@@ -223,15 +223,15 @@ export default function StudentDetailPage() {
             </div>
             <div className="mt-4 grid grid-cols-3 gap-4">
               <div className="rounded-lg bg-gray-50 p-4 text-center">
-                <p className="text-xs text-gray-500">제출 과제</p>
+                <p className="text-xs text-gray-900">제출 과제</p>
                 <p className="text-2xl font-bold">{student.submissions.length}개</p>
               </div>
               <div className="rounded-lg bg-gray-50 p-4 text-center">
-                <p className="text-xs text-gray-500">평균 점수</p>
+                <p className="text-xs text-gray-900">평균 점수</p>
                 <p className="text-2xl font-bold">{avgScore}</p>
               </div>
               <div className="rounded-lg bg-gray-50 p-4 text-center">
-                <p className="text-xs text-gray-500">반</p>
+                <p className="text-xs text-gray-900">반</p>
                 <p className="text-sm font-bold">{classLabel}</p>
               </div>
             </div>
@@ -257,7 +257,7 @@ export default function StudentDetailPage() {
                 >
                   <div>
                     <p className="font-medium">{sub.assignment.title}</p>
-                    <p className="mt-0.5 text-xs text-gray-400">
+                    <p className="mt-0.5 text-xs text-gray-900">
                       {new Date(sub.submittedAt).toLocaleDateString("ko-KR")} 제출
                     </p>
                   </div>
@@ -266,10 +266,10 @@ export default function StudentDetailPage() {
                       <p className="text-sm font-bold">
                         {sub.score}/{sub.totalPoints}
                       </p>
-                      <p className="text-xs text-gray-400">{pct}%</p>
+                      <p className="text-xs text-gray-900">{pct}%</p>
                     </div>
                     <span
-                      className={`text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      className={`text-gray-900 transition-transform ${isExpanded ? "rotate-180" : ""}`}
                     >
                       ▼
                     </span>
@@ -314,31 +314,31 @@ export default function StudentDetailPage() {
               {showingAnalysis && (
                 <div className="border-t px-5 py-4">
                   {analysisLoading ? (
-                    <p className="text-sm text-gray-500">분석 중...</p>
+                    <p className="text-sm text-gray-900">분석 중...</p>
                   ) : analysisData ? (
                     <div className="space-y-4">
                       {/* Grade & Score Summary */}
                       <div className="grid grid-cols-4 gap-3">
                         <div className="rounded-lg bg-gray-50 p-3 text-center">
-                          <p className="text-xs text-gray-400">점수</p>
+                          <p className="text-xs text-gray-900">점수</p>
                           <p className="text-lg font-bold text-blue-600">
                             {analysisData.score}/{analysisData.totalPoints}
                           </p>
                         </div>
                         <div className="rounded-lg bg-gray-50 p-3 text-center">
-                          <p className="text-xs text-gray-400">정답률</p>
+                          <p className="text-xs text-gray-900">정답률</p>
                           <p className="text-lg font-bold text-green-600">{analysisData.correctRate}%</p>
                         </div>
                         {analysisData.hasAgents && (
                           <>
                             <div className="rounded-lg bg-gray-50 p-3 text-center">
-                              <p className="text-xs text-gray-400">추정 등급</p>
-                              <p className={`text-lg font-bold rounded px-2 py-0.5 ${gradeColors[analysisData.grade] || "text-gray-600"}`}>
+                              <p className="text-xs text-gray-900">추정 등급</p>
+                              <p className={`text-lg font-bold rounded px-2 py-0.5 ${gradeColors[analysisData.grade] || "text-gray-900"}`}>
                                 {analysisData.grade}등급
                               </p>
                             </div>
                             <div className="rounded-lg bg-gray-50 p-3 text-center">
-                              <p className="text-xs text-gray-400">백분위</p>
+                              <p className="text-xs text-gray-900">백분위</p>
                               <p className="text-lg font-bold text-purple-600">
                                 상위 {(100 - analysisData.percentile).toFixed(1)}%
                               </p>
@@ -357,8 +357,8 @@ export default function StudentDetailPage() {
 
                       {/* AI Feedback */}
                       <div className="rounded-lg bg-gray-50 p-4">
-                        <p className="text-xs font-semibold text-gray-500 mb-2">AI 선생님 코멘트</p>
-                        <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">
+                        <p className="text-xs font-semibold text-gray-900 mb-2">AI 선생님 코멘트</p>
+                        <p className="text-sm leading-relaxed text-gray-900 whitespace-pre-wrap">
                           {analysisData.feedback}
                         </p>
                       </div>
@@ -366,7 +366,7 @@ export default function StudentDetailPage() {
                       {/* Wrong Questions */}
                       {analysisData.wrongQuestions.length > 0 && (
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 mb-2">
+                          <p className="text-xs font-semibold text-gray-900 mb-2">
                             틀린 문항 ({analysisData.wrongQuestions.length}개)
                           </p>
                           <div className="flex flex-wrap gap-1">
@@ -394,7 +394,7 @@ export default function StudentDetailPage() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-400">분석 결과를 불러올 수 없습니다.</p>
+                    <p className="text-sm text-gray-900">분석 결과를 불러올 수 없습니다.</p>
                   )}
                 </div>
               )}
@@ -403,7 +403,7 @@ export default function StudentDetailPage() {
         })}
 
         {student.submissions.length === 0 && (
-          <div className="rounded-lg bg-white px-4 py-12 text-center text-gray-400 shadow-sm">
+          <div className="rounded-lg bg-white px-4 py-12 text-center text-gray-900 shadow-sm">
             아직 제출한 과제가 없습니다.
           </div>
         )}
@@ -430,7 +430,7 @@ function EditField({
 
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-gray-500">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-gray-900">{label}</label>
       <select
         value={value}
         onChange={(e) => {

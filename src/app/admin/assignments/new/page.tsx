@@ -153,7 +153,7 @@ export default function NewAssignmentPage() {
 
         <div className="rounded-lg bg-white p-6 shadow-sm">
           <div className="mb-4">
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-gray-900">
               과제 제목 *
             </label>
             <input
@@ -166,7 +166,7 @@ export default function NewAssignmentPage() {
           </div>
 
           <div className="mb-4">
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-gray-900">
               설명 (선택)
             </label>
             <textarea
@@ -178,7 +178,7 @@ export default function NewAssignmentPage() {
           </div>
 
           <div className="mb-6">
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-gray-900">
               문항 수
             </label>
             <input
@@ -195,7 +195,7 @@ export default function NewAssignmentPage() {
 
           <div className="mb-6 rounded-lg border-2 border-dashed border-gray-300 p-4">
             <div className="mb-2 flex items-center justify-between">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-900">
                 CSV 파일로 정답 업로드 (선택)
               </label>
               <button
@@ -210,9 +210,9 @@ export default function NewAssignmentPage() {
               type="file"
               accept=".csv"
               onChange={handleCSVUpload}
-              className="block w-full text-sm text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-600 hover:file:bg-blue-100"
+              className="block w-full text-sm text-gray-900 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-600 hover:file:bg-blue-100"
             />
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="mt-2 text-xs text-gray-900">
               양식: 문항번호,정답,배점 (예: 1,3,2) — 배점 생략 시 총 100점 자동 분배, 첫 행 헤더 자동 무시
             </p>
             {questions.length > 0 && (
@@ -238,7 +238,7 @@ export default function NewAssignmentPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-2 text-2xl font-bold">정답 입력</h1>
-      <p className="mb-6 text-sm text-gray-500">
+      <p className="mb-6 text-sm text-gray-900">
         {title} — {questionCount}문항
       </p>
 
@@ -252,7 +252,7 @@ export default function NewAssignmentPage() {
         <div className="grid grid-cols-4 gap-3 sm:grid-cols-5">
           {questions.map((q, i) => (
             <div key={q.questionNumber} className="text-center">
-              <label className="mb-1 block text-xs font-medium text-gray-500">
+              <label className="mb-1 block text-xs font-medium text-gray-900">
                 {q.questionNumber}번
               </label>
               <select
@@ -273,7 +273,7 @@ export default function NewAssignmentPage() {
         <div className="mt-6 flex gap-3">
           <button
             onClick={() => setStep("info")}
-            className="rounded-lg border px-6 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="rounded-lg border px-6 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
           >
             이전
           </button>

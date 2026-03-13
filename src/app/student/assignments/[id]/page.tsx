@@ -115,7 +115,7 @@ function SubmitAnswerContent() {
     setSubmitting(false);
   }
 
-  if (loading) return <p className="text-gray-500">로딩 중...</p>;
+  if (loading) return <p className="text-gray-900">로딩 중...</p>;
   if (!assignment) return <p className="text-red-500">과제를 찾을 수 없습니다.</p>;
 
   // Show results after submission
@@ -124,13 +124,13 @@ function SubmitAnswerContent() {
     return (
       <div className="mx-auto max-w-2xl">
         <h1 className="mb-2 text-2xl font-bold">채점 결과</h1>
-        <p className="mb-6 text-sm text-gray-500">{assignment.title}</p>
+        <p className="mb-6 text-sm text-gray-900">{assignment.title}</p>
 
         <div className="mb-6 rounded-lg bg-white p-6 text-center shadow-sm">
           <p className="text-5xl font-bold text-blue-600">
             {result.score}/{result.totalPoints}
           </p>
-          <p className="mt-2 text-lg text-gray-500">정답률 {percentage}%</p>
+          <p className="mt-2 text-lg text-gray-900">정답률 {percentage}%</p>
         </div>
 
         <div className="rounded-lg bg-white p-6 shadow-sm">
@@ -171,7 +171,7 @@ function SubmitAnswerContent() {
       <h1 className="mb-2 text-2xl font-bold">
         {isEditMode ? "답안 수정" : assignment.title}
       </h1>
-      <p className="mb-6 text-sm text-gray-500">
+      <p className="mb-6 text-sm text-gray-900">
         {isEditMode ? `${assignment.title} — ` : ""}
         {assignment.totalQuestions}문항 | 각 문항의 답을 선택해 주세요 (1~5)
       </p>
@@ -186,7 +186,7 @@ function SubmitAnswerContent() {
         <div className="grid grid-cols-4 gap-4 sm:grid-cols-5">
           {assignment.questions.map((q) => (
             <div key={q.questionNumber}>
-              <label className="mb-1 block text-center text-xs font-medium text-gray-500">
+              <label className="mb-1 block text-center text-xs font-medium text-gray-900">
                 {q.questionNumber}번
               </label>
               <div className="flex justify-center gap-1">
@@ -197,7 +197,7 @@ function SubmitAnswerContent() {
                     className={`h-8 w-8 rounded text-xs font-medium transition ${
                       answers[q.questionNumber] === n
                         ? "bg-blue-600 text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        : "bg-gray-100 text-gray-900 hover:bg-gray-200"
                     }`}
                   >
                     {n}
@@ -209,7 +209,7 @@ function SubmitAnswerContent() {
         </div>
 
         <div className="mt-6 flex items-center justify-between">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-900">
             응답: {Object.keys(answers).length}/{assignment.totalQuestions}
           </p>
           <button
@@ -227,7 +227,7 @@ function SubmitAnswerContent() {
 
 export default function SubmitAnswerPage() {
   return (
-    <Suspense fallback={<p className="text-gray-500">로딩 중...</p>}>
+    <Suspense fallback={<p className="text-gray-900">로딩 중...</p>}>
       <SubmitAnswerContent />
     </Suspense>
   );

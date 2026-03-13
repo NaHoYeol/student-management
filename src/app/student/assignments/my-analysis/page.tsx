@@ -70,12 +70,12 @@ function MyAnalysisContent() {
       });
   }, [assignmentId]);
 
-  if (loading) return <p className="text-gray-500">분석 결과를 불러오는 중...</p>;
+  if (loading) return <p className="text-gray-900">분석 결과를 불러오는 중...</p>;
 
   if (!assignmentId) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">과제를 선택해 주세요.</p>
+        <p className="text-gray-900">과제를 선택해 주세요.</p>
         <Link href="/student/assignments" className="mt-4 text-blue-600 hover:underline">
           과제 목록으로
         </Link>
@@ -86,7 +86,7 @@ function MyAnalysisContent() {
   if (error) {
     return (
       <div className="text-center py-20">
-        <p className="mb-4 text-gray-500">{error}</p>
+        <p className="mb-4 text-gray-900">{error}</p>
         <Link href="/student/assignments" className="text-blue-600 hover:underline">
           과제 목록으로 돌아가기
         </Link>
@@ -123,37 +123,37 @@ function MyAnalysisContent() {
         </Link>
         <button
           onClick={handlePrint}
-          className="rounded-lg border border-gray-400 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="rounded-lg border border-gray-400 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
         >
           PDF 다운로드
         </button>
       </div>
 
       <h1 className="mb-1 text-2xl font-bold">{data.title} - 내 성적 분석</h1>
-      <p className="mb-4 text-xs text-gray-400">전국 단위 9등급제 기반 추정 결과</p>
+      <p className="mb-4 text-xs text-gray-900">전국 단위 9등급제 기반 추정 결과</p>
 
       {/* 요약 카드 */}
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-lg bg-white p-4 shadow-sm text-center">
-          <p className="text-xs text-gray-400">점수</p>
+          <p className="text-xs text-gray-900">점수</p>
           <p className="text-2xl font-bold text-blue-600">
-            {data.score}<span className="text-sm font-normal text-gray-400">/{data.totalPoints}</span>
+            {data.score}<span className="text-sm font-normal text-gray-900">/{data.totalPoints}</span>
           </p>
         </div>
         <div className="rounded-lg bg-white p-4 shadow-sm text-center">
-          <p className="text-xs text-gray-400">정답률</p>
+          <p className="text-xs text-gray-900">정답률</p>
           <p className="text-2xl font-bold text-green-600">{data.correctRate}%</p>
         </div>
         {data.hasAgents && (
           <>
             <div className="rounded-lg bg-white p-4 shadow-sm text-center">
-              <p className="text-xs text-gray-400">추정 등급</p>
-              <p className={`inline-block rounded-lg border px-3 py-1 text-2xl font-bold ${gradeColors[data.grade] || "text-gray-600"}`}>
+              <p className="text-xs text-gray-900">추정 등급</p>
+              <p className={`inline-block rounded-lg border px-3 py-1 text-2xl font-bold ${gradeColors[data.grade] || "text-gray-900"}`}>
                 {data.grade}등급
               </p>
             </div>
             <div className="rounded-lg bg-white p-4 shadow-sm text-center">
-              <p className="text-xs text-gray-400">백분위</p>
+              <p className="text-xs text-gray-900">백분위</p>
               <p className="text-2xl font-bold text-purple-600">
                 상위 {(100 - data.percentile).toFixed(1)}%
               </p>
@@ -165,7 +165,7 @@ function MyAnalysisContent() {
       {/* AI 피드백 */}
       <div className="mb-6 rounded-lg bg-white p-5 shadow-sm">
         <h2 className="mb-3 text-lg font-semibold">AI 선생님 코멘트</h2>
-        <div className="rounded-lg bg-gray-50 p-4 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">
+        <div className="rounded-lg bg-gray-50 p-4 text-sm leading-relaxed text-gray-900 whitespace-pre-wrap">
           {data.feedback}
         </div>
       </div>
@@ -191,17 +191,17 @@ function MyAnalysisContent() {
                   : "border-red-200 bg-red-50"
               }`}
             >
-              <span className="block text-xs text-gray-400">{q.questionNumber}</span>
+              <span className="block text-xs text-gray-900">{q.questionNumber}</span>
               <span className={`text-sm font-bold ${q.isCorrect ? "text-green-600" : "text-red-600"}`}>
                 {q.isCorrect ? "O" : "X"}
               </span>
               {!q.isCorrect && (
-                <span className="block text-xs text-gray-400">
+                <span className="block text-xs text-gray-900">
                   {q.studentAnswer}&rarr;{q.correctAnswer}
                 </span>
               )}
               {q.correctRate !== undefined && (
-                <span className="block text-[10px] text-gray-400">
+                <span className="block text-[10px] text-gray-900">
                   {q.correctRate}%
                 </span>
               )}
@@ -219,11 +219,11 @@ function MyAnalysisContent() {
           <table className="w-full text-left text-sm">
             <thead className="border-b bg-gray-50">
               <tr>
-                <th className="px-4 py-2 font-medium text-gray-600">문항</th>
-                <th className="px-4 py-2 font-medium text-gray-600">내 답</th>
-                <th className="px-4 py-2 font-medium text-gray-600">정답</th>
-                <th className="px-4 py-2 font-medium text-gray-600">정답률</th>
-                <th className="px-4 py-2 font-medium text-gray-600">난이도</th>
+                <th className="px-4 py-2 font-medium text-gray-900">문항</th>
+                <th className="px-4 py-2 font-medium text-gray-900">내 답</th>
+                <th className="px-4 py-2 font-medium text-gray-900">정답</th>
+                <th className="px-4 py-2 font-medium text-gray-900">정답률</th>
+                <th className="px-4 py-2 font-medium text-gray-900">난이도</th>
               </tr>
             </thead>
             <tbody>
@@ -232,7 +232,7 @@ function MyAnalysisContent() {
                   <td className="px-4 py-2">{q.questionNumber}번</td>
                   <td className="px-4 py-2 text-red-600 font-medium">{q.studentAnswer}</td>
                   <td className="px-4 py-2 text-green-600 font-medium">{q.correctAnswer}</td>
-                  <td className="px-4 py-2 text-gray-600">{q.correctRate}%</td>
+                  <td className="px-4 py-2 text-gray-900">{q.correctRate}%</td>
                   <td className="px-4 py-2">
                     <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                       q.correctRate >= 80
@@ -260,7 +260,7 @@ function MyAnalysisContent() {
 
 export default function MyAnalysisPage() {
   return (
-    <Suspense fallback={<p className="text-gray-500">로딩 중...</p>}>
+    <Suspense fallback={<p className="text-gray-900">로딩 중...</p>}>
       <MyAnalysisContent />
     </Suspense>
   );

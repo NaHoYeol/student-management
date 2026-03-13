@@ -20,7 +20,7 @@ export function Nav() {
           </Link>
           <Link
             href={`${basePath}/assignments`}
-            className="text-sm text-gray-600 hover:text-gray-900"
+            className="text-sm text-gray-900 hover:text-gray-900"
           >
             {isAdmin ? "과제 관리" : "과제 목록"}
           </Link>
@@ -28,19 +28,19 @@ export function Nav() {
             <>
               <Link
                 href="/admin/students"
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="text-sm text-gray-900 hover:text-gray-900"
               >
                 학생 관리
               </Link>
               <Link
                 href="/admin/class-options"
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="text-sm text-gray-900 hover:text-gray-900"
               >
                 반 편성
               </Link>
               <Link
                 href="/admin/settings"
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="text-sm text-gray-900 hover:text-gray-900"
               >
                 설정
               </Link>
@@ -48,14 +48,14 @@ export function Nav() {
           ) : (
             <Link
               href="/student/profile"
-              className="text-sm text-gray-600 hover:text-gray-900"
+              className="text-sm text-gray-900 hover:text-gray-900"
             >
               내 정보
             </Link>
           )}
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-gray-900">
             {session.user.name}{" "}
             <span className="rounded bg-gray-100 px-2 py-0.5 text-xs">
               {isAdmin ? "강사" : "학생"}

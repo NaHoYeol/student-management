@@ -49,12 +49,12 @@ function AnalysisContent() {
     window.print();
   }
 
-  if (loading) return <p className="text-gray-500">로딩 중...</p>;
+  if (loading) return <p className="text-gray-900">로딩 중...</p>;
 
   if (!assignmentId) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">과제를 선택해 주세요.</p>
+        <p className="text-gray-900">과제를 선택해 주세요.</p>
         <Link href="/student/assignments" className="mt-4 text-blue-600 hover:underline">
           과제 목록으로
         </Link>
@@ -65,7 +65,7 @@ function AnalysisContent() {
   if (error) {
     return (
       <div className="text-center py-20">
-        <p className="mb-4 text-gray-500">{error}</p>
+        <p className="mb-4 text-gray-900">{error}</p>
         <Link href="/student/assignments" className="text-blue-600 hover:underline">
           과제 목록으로 돌아가기
         </Link>
@@ -86,7 +86,7 @@ function AnalysisContent() {
         </Link>
         <button
           onClick={handlePrint}
-          className="rounded-lg border border-gray-400 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="rounded-lg border border-gray-400 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
         >
           PDF 다운로드
         </button>
@@ -98,7 +98,7 @@ function AnalysisContent() {
 
 export default function StudentAnalysisPage() {
   return (
-    <Suspense fallback={<p className="text-gray-500">로딩 중...</p>}>
+    <Suspense fallback={<p className="text-gray-900">로딩 중...</p>}>
       <AnalysisContent />
     </Suspense>
   );

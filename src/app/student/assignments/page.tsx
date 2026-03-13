@@ -35,7 +35,7 @@ export default function StudentAssignmentsPage() {
     });
   }, []);
 
-  if (loading) return <p className="text-gray-500">로딩 중...</p>;
+  if (loading) return <p className="text-gray-900">로딩 중...</p>;
 
   return (
     <div>
@@ -52,9 +52,9 @@ export default function StudentAssignmentsPage() {
               <div>
                 <h3 className="font-semibold">{a.title}</h3>
                 {a.description && (
-                  <p className="mt-1 text-sm text-gray-500">{a.description}</p>
+                  <p className="mt-1 text-sm text-gray-900">{a.description}</p>
                 )}
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-gray-900">
                   {a.totalQuestions}문항 | {a.createdBy.name || "강사"}
                 </p>
               </div>
@@ -98,7 +98,7 @@ export default function StudentAssignmentsPage() {
           );
         })}
         {assignments.length === 0 && (
-          <p className="py-12 text-center text-gray-400">
+          <p className="py-12 text-center text-gray-900">
             현재 등록된 과제가 없습니다.
           </p>
         )}

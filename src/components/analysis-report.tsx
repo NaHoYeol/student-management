@@ -33,14 +33,14 @@ export function AnalysisReport({
       {/* 헤더 */}
       <div className="text-center">
         <h1 className="text-2xl font-bold">{title}</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-gray-900">
           {hideCount
             ? `성적 분석 리포트 | ${a.totalQuestions}문항 | 만점 ${a.totalPoints}점`
             : `성적 분석 리포트 | 응시 ${a.totalStudents}명 | ${a.totalQuestions}문항 | 만점 ${a.totalPoints}점`
           }
         </p>
         {hideCount && (
-          <p className="mt-0.5 text-xs text-gray-400">
+          <p className="mt-0.5 text-xs text-gray-900">
             전국 단위 9등급제 기반 추정 결과
           </p>
         )}
@@ -99,7 +99,7 @@ export function AnalysisReport({
           <div className="space-y-2">
             {a.scoreBands.map((b) => (
               <div key={b.label} className="flex items-center gap-3">
-                <span className="w-20 shrink-0 text-right text-xs text-gray-500">
+                <span className="w-20 shrink-0 text-right text-xs text-gray-900">
                   {b.label}점
                 </span>
                 <div className="flex-1">
@@ -109,7 +109,7 @@ export function AnalysisReport({
                     color="bg-blue-500"
                   />
                 </div>
-                <span className="w-16 shrink-0 text-xs text-gray-600">
+                <span className="w-16 shrink-0 text-xs text-gray-900">
                   {hideCount
                     ? `${b.rate.toFixed(1)}%`
                     : `${b.count}명 (${b.rate.toFixed(0)}%)`
@@ -128,7 +128,7 @@ export function AnalysisReport({
           <div className="space-y-2">
             {a.questionStats.map((q) => (
               <div key={q.questionNumber} className="flex items-center gap-3">
-                <span className="w-12 shrink-0 text-right text-xs font-medium text-gray-500">
+                <span className="w-12 shrink-0 text-right text-xs font-medium text-gray-900">
                   {q.questionNumber}번
                 </span>
                 <div className="flex-1">
@@ -144,7 +144,7 @@ export function AnalysisReport({
                     }
                   />
                 </div>
-                <span className="w-16 shrink-0 text-xs text-gray-600">
+                <span className="w-16 shrink-0 text-xs text-gray-900">
                   {q.correctRate.toFixed(0)}%
                 </span>
               </div>
@@ -160,14 +160,14 @@ export function AnalysisReport({
           <table className="w-full text-left text-sm">
             <thead className="border-b bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium text-gray-600">문항</th>
-                <th className="px-4 py-3 font-medium text-gray-600">정답</th>
-                <th className="px-4 py-3 font-medium text-gray-600">정답률</th>
-                <th className="px-4 py-3 font-medium text-gray-600">1번</th>
-                <th className="px-4 py-3 font-medium text-gray-600">2번</th>
-                <th className="px-4 py-3 font-medium text-gray-600">3번</th>
-                <th className="px-4 py-3 font-medium text-gray-600">4번</th>
-                <th className="px-4 py-3 font-medium text-gray-600">5번</th>
+                <th className="px-4 py-3 font-medium text-gray-900">문항</th>
+                <th className="px-4 py-3 font-medium text-gray-900">정답</th>
+                <th className="px-4 py-3 font-medium text-gray-900">정답률</th>
+                <th className="px-4 py-3 font-medium text-gray-900">1번</th>
+                <th className="px-4 py-3 font-medium text-gray-900">2번</th>
+                <th className="px-4 py-3 font-medium text-gray-900">3번</th>
+                <th className="px-4 py-3 font-medium text-gray-900">4번</th>
+                <th className="px-4 py-3 font-medium text-gray-900">5번</th>
               </tr>
             </thead>
             <tbody>
@@ -179,7 +179,7 @@ export function AnalysisReport({
                   {q.choiceRates.map((r, i) => (
                     <td
                       key={i}
-                      className={`px-4 py-3 ${i + 1 === q.correctAnswer ? "font-bold text-blue-600" : "text-gray-500"}`}
+                      className={`px-4 py-3 ${i + 1 === q.correctAnswer ? "font-bold text-blue-600" : "text-gray-900"}`}
                     >
                       {r.toFixed(0)}%
                     </td>
@@ -198,14 +198,14 @@ export function AnalysisReport({
           <table className="w-full text-left text-sm">
             <thead className="border-b bg-gray-50">
               <tr>
-                <th className="px-4 py-3 font-medium text-gray-600">문항</th>
-                <th className="px-4 py-3 font-medium text-gray-600">정답</th>
-                <th className="px-4 py-3 font-medium text-gray-600">정답률</th>
-                <th className="px-4 py-3 font-medium text-gray-600">1번</th>
-                <th className="px-4 py-3 font-medium text-gray-600">2번</th>
-                <th className="px-4 py-3 font-medium text-gray-600">3번</th>
-                <th className="px-4 py-3 font-medium text-gray-600">4번</th>
-                <th className="px-4 py-3 font-medium text-gray-600">5번</th>
+                <th className="px-4 py-3 font-medium text-gray-900">문항</th>
+                <th className="px-4 py-3 font-medium text-gray-900">정답</th>
+                <th className="px-4 py-3 font-medium text-gray-900">정답률</th>
+                <th className="px-4 py-3 font-medium text-gray-900">1번</th>
+                <th className="px-4 py-3 font-medium text-gray-900">2번</th>
+                <th className="px-4 py-3 font-medium text-gray-900">3번</th>
+                <th className="px-4 py-3 font-medium text-gray-900">4번</th>
+                <th className="px-4 py-3 font-medium text-gray-900">5번</th>
               </tr>
             </thead>
             <tbody>
@@ -217,7 +217,7 @@ export function AnalysisReport({
                   {q.choiceRates.map((r, i) => (
                     <td
                       key={i}
-                      className={`px-4 py-3 ${i + 1 === q.correctAnswer ? "font-bold text-blue-600" : "text-gray-500"}`}
+                      className={`px-4 py-3 ${i + 1 === q.correctAnswer ? "font-bold text-blue-600" : "text-gray-900"}`}
                     >
                       {r.toFixed(0)}%
                     </td>
@@ -235,8 +235,8 @@ export function AnalysisReport({
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: boolean }) {
   return (
     <div className="rounded-lg bg-white p-4 shadow-sm">
-      {label && <p className="text-xs text-gray-500">{label}</p>}
-      <p className={`font-bold ${sub ? "text-sm text-gray-600" : "text-xl"}`}>{value}</p>
+      {label && <p className="text-xs text-gray-900">{label}</p>}
+      <p className={`font-bold ${sub ? "text-sm text-gray-900" : "text-xl"}`}>{value}</p>
     </div>
   );
 }

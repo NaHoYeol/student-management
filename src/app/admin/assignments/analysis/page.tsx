@@ -112,7 +112,7 @@ function AnalysisContent() {
   if (!assignmentId) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">대시보드에서 과제를 선택해 주세요.</p>
+        <p className="text-gray-900">대시보드에서 과제를 선택해 주세요.</p>
         <Link href="/admin/dashboard" className="mt-4 text-blue-600 hover:underline">
           대시보드로 이동
         </Link>
@@ -157,7 +157,7 @@ function AnalysisContent() {
               </button>
               <button
                 onClick={handlePrint}
-                className="rounded-lg border border-gray-400 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                className="rounded-lg border border-gray-400 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
               >
                 PDF 다운로드
               </button>
@@ -168,7 +168,7 @@ function AnalysisContent() {
 
       {!analysis && !loading && !error && (
         <div className="text-center py-20">
-          <p className="mb-4 text-gray-500">분석하기 버튼을 눌러 성적 분석을 시작하세요.</p>
+          <p className="mb-4 text-gray-900">분석하기 버튼을 눌러 성적 분석을 시작하세요.</p>
           <button
             onClick={runAnalysis}
             className="rounded-lg bg-blue-600 px-8 py-3 text-sm font-medium text-white hover:bg-blue-700"
@@ -180,7 +180,7 @@ function AnalysisContent() {
 
       {loading && (
         <div className="text-center py-20">
-          <p className="text-gray-500">분석 중...</p>
+          <p className="text-gray-900">분석 중...</p>
         </div>
       )}
 
@@ -209,9 +209,9 @@ function AnalysisContent() {
           <div className="mt-8 print:hidden">
             <h2 className="mb-3 text-lg font-semibold">학생별 분석</h2>
             {studentsLoading ? (
-              <p className="text-sm text-gray-500">학생 목록 불러오는 중...</p>
+              <p className="text-sm text-gray-900">학생 목록 불러오는 중...</p>
             ) : students.length === 0 ? (
-              <p className="text-sm text-gray-400">제출한 학생이 없습니다.</p>
+              <p className="text-sm text-gray-900">제출한 학생이 없습니다.</p>
             ) : (
               <div className="space-y-2">
                 {students.map((s) => (
@@ -222,13 +222,13 @@ function AnalysisContent() {
                     >
                       <div className="flex items-center gap-3">
                         <span className="font-medium">{s.studentName || s.studentEmail}</span>
-                        <span className="text-xs text-gray-400">{s.studentEmail}</span>
+                        <span className="text-xs text-gray-900">{s.studentEmail}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-bold">
                           {s.score}/{s.totalPoints} ({s.correctRate}%)
                         </span>
-                        <span className={`text-gray-400 transition-transform ${selectedStudentId === s.studentId ? "rotate-180" : ""}`}>
+                        <span className={`text-gray-900 transition-transform ${selectedStudentId === s.studentId ? "rotate-180" : ""}`}>
                           ▼
                         </span>
                       </div>
@@ -237,30 +237,30 @@ function AnalysisContent() {
                     {selectedStudentId === s.studentId && (
                       <div className="border-t px-5 py-4">
                         {studentAnalysisLoading ? (
-                          <p className="text-sm text-gray-500">분석 중...</p>
+                          <p className="text-sm text-gray-900">분석 중...</p>
                         ) : studentAnalysis ? (
                           <div className="space-y-4">
                             <div className="grid grid-cols-4 gap-3">
                               <div className="rounded-lg bg-gray-50 p-3 text-center">
-                                <p className="text-xs text-gray-400">점수</p>
+                                <p className="text-xs text-gray-900">점수</p>
                                 <p className="text-lg font-bold text-blue-600">
                                   {(studentAnalysis as { score: number }).score}/{(studentAnalysis as { totalPoints: number }).totalPoints}
                                 </p>
                               </div>
                               <div className="rounded-lg bg-gray-50 p-3 text-center">
-                                <p className="text-xs text-gray-400">정답률</p>
+                                <p className="text-xs text-gray-900">정답률</p>
                                 <p className="text-lg font-bold text-green-600">{(studentAnalysis as { correctRate: number }).correctRate}%</p>
                               </div>
                               {(studentAnalysis as { hasAgents: boolean }).hasAgents && (
                                 <>
                                   <div className="rounded-lg bg-gray-50 p-3 text-center">
-                                    <p className="text-xs text-gray-400">추정 등급</p>
+                                    <p className="text-xs text-gray-900">추정 등급</p>
                                     <p className={`text-lg font-bold rounded px-2 py-0.5 ${gradeColors[(studentAnalysis as { grade: number }).grade] || ""}`}>
                                       {(studentAnalysis as { grade: number }).grade}등급
                                     </p>
                                   </div>
                                   <div className="rounded-lg bg-gray-50 p-3 text-center">
-                                    <p className="text-xs text-gray-400">백분위</p>
+                                    <p className="text-xs text-gray-900">백분위</p>
                                     <p className="text-lg font-bold text-purple-600">
                                       상위 {(100 - (studentAnalysis as { percentile: number }).percentile).toFixed(1)}%
                                     </p>
@@ -277,15 +277,15 @@ function AnalysisContent() {
                             )}
 
                             <div className="rounded-lg bg-gray-50 p-4">
-                              <p className="text-xs font-semibold text-gray-500 mb-2">AI 선생님 코멘트</p>
-                              <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">
+                              <p className="text-xs font-semibold text-gray-900 mb-2">AI 선생님 코멘트</p>
+                              <p className="text-sm leading-relaxed text-gray-900 whitespace-pre-wrap">
                                 {(studentAnalysis as { feedback: string }).feedback}
                               </p>
                             </div>
 
                             {((studentAnalysis as { wrongQuestions: { questionNumber: number; correctRate: number; studentAnswer: number; correctAnswer: number }[] }).wrongQuestions).length > 0 && (
                               <div>
-                                <p className="text-xs font-semibold text-gray-500 mb-2">
+                                <p className="text-xs font-semibold text-gray-900 mb-2">
                                   틀린 문항 ({((studentAnalysis as { wrongQuestions: unknown[] }).wrongQuestions).length}개)
                                 </p>
                                 <div className="flex flex-wrap gap-1">
@@ -313,7 +313,7 @@ function AnalysisContent() {
                             )}
                           </div>
                         ) : (
-                          <p className="text-sm text-gray-400">분석 결과를 불러올 수 없습니다.</p>
+                          <p className="text-sm text-gray-900">분석 결과를 불러올 수 없습니다.</p>
                         )}
                       </div>
                     )}
@@ -330,7 +330,7 @@ function AnalysisContent() {
 
 export default function AdminAnalysisPage() {
   return (
-    <Suspense fallback={<p className="text-gray-500">로딩 중...</p>}>
+    <Suspense fallback={<p className="text-gray-900">로딩 중...</p>}>
       <AnalysisContent />
     </Suspense>
   );

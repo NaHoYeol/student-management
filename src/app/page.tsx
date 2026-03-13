@@ -22,7 +22,7 @@ export default function Home() {
   if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-gray-500">로딩 중...</p>
+        <p className="text-gray-900">로딩 중...</p>
       </div>
     );
   }
@@ -33,7 +33,7 @@ export default function Home() {
         <h1 className="text-4xl font-bold text-gray-900">
           학생 과제 관리 시스템
         </h1>
-        <p className="mt-3 text-lg text-gray-600">
+        <p className="mt-3 text-lg text-gray-900">
           과제 제출, 자동 채점, 진척도 관리를 한 곳에서
         </p>
       </div>

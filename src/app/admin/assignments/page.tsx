@@ -24,7 +24,7 @@ function downloadFile(content: string, filename: string, mimeType = "text/markdo
 
 function SectionRenderer({ sections }: { sections: ExamSection[] }) {
   if (sections.length === 0) {
-    return <p className="text-sm text-gray-400">구조화 데이터가 없습니다.</p>;
+    return <p className="text-sm text-gray-900">구조화 데이터가 없습니다.</p>;
   }
 
   return (
@@ -63,7 +63,7 @@ function SectionRenderer({ sections }: { sections: ExamSection[] }) {
               {q.condition && (
                 <div className="mt-2 ml-2 rounded border-l-3 border-orange-400 bg-orange-50 px-3 py-2">
                   <span className="text-xs font-bold text-orange-600">&lt;보기&gt;</span>
-                  <p className="mt-1 text-xs leading-relaxed text-gray-700 whitespace-pre-line">{q.condition}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-900 whitespace-pre-line">{q.condition}</p>
                 </div>
               )}
 
@@ -71,7 +71,7 @@ function SectionRenderer({ sections }: { sections: ExamSection[] }) {
               {q.choices && q.choices.length > 0 && (
                 <div className="mt-2 ml-2 space-y-0.5">
                   {q.choices.map((choice, ci) => (
-                    <p key={ci} className="text-xs text-gray-700">{choice}</p>
+                    <p key={ci} className="text-xs text-gray-900">{choice}</p>
                   ))}
                 </div>
               )}
@@ -289,11 +289,11 @@ function AssignmentsContent() {
     downloadFile([header, ...rows].map((r) => r.join(",")).join("\n"), `${assignment.title}_제출현황.csv`, "text/csv;charset=utf-8;");
   }
 
-  if (loading) return <p className="text-gray-500">로딩 중...</p>;
+  if (loading) return <p className="text-gray-900">로딩 중...</p>;
   if (!assignmentId || !assignment) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">대시보드에서 과제를 선택해 주세요.</p>
+        <p className="text-gray-900">대시보드에서 과제를 선택해 주세요.</p>
         <Link href="/admin/dashboard" className="mt-4 text-blue-600 hover:underline">대시보드로 이동</Link>
       </div>
     );
@@ -308,7 +308,7 @@ function AssignmentsContent() {
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">{assignment.title}</h1>
-          <p className="text-sm text-gray-500">{assignment.totalQuestions}문항 | 제출 {submissions.length}명 | 평균 {avgScore}점</p>
+          <p className="text-sm text-gray-900">{assignment.totalQuestions}문항 | 제출 {submissions.length}명 | 평균 {avgScore}점</p>
         </div>
         <div className="flex shrink-0 gap-2">
           <button onClick={handleSimulate} disabled={simulating}
@@ -332,7 +332,7 @@ function AssignmentsContent() {
           <div className="grid grid-cols-5 gap-3 sm:grid-cols-10">
             {editAnswers.map((q, i) => (
               <div key={q.questionNumber} className="text-center">
-                <label className="mb-1 block text-xs text-gray-400">{q.questionNumber}</label>
+                <label className="mb-1 block text-xs text-gray-900">{q.questionNumber}</label>
                 <select value={q.correctAnswer} onChange={(e) => updateEditAnswer(i, parseInt(e.target.value))}
                   className="w-full rounded border px-1 py-1 text-center text-sm text-black focus:border-blue-500 focus:outline-none">
                   {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
@@ -342,19 +342,19 @@ function AssignmentsContent() {
           </div>
           <div className="mt-4 rounded border-2 border-dashed border-gray-200 p-3">
             <div className="mb-1 flex items-center justify-between">
-              <label className="block text-xs font-medium text-gray-500">CSV 파일로 정답 교체</label>
+              <label className="block text-xs font-medium text-gray-900">CSV 파일로 정답 교체</label>
               <button type="button" onClick={downloadEditSampleCSV} className="text-xs font-medium text-blue-600 hover:underline">현재 정답표 CSV 다운로드</button>
             </div>
             <input type="file" accept=".csv" onChange={handleEditCSVUpload}
-              className="block w-full text-xs text-gray-500 file:mr-2 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-blue-600 hover:file:bg-blue-100" />
-            <p className="mt-1 text-xs text-gray-400">양식: 문항번호,정답,배점 (예: 1,3,2)</p>
+              className="block w-full text-xs text-gray-900 file:mr-2 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-blue-600 hover:file:bg-blue-100" />
+            <p className="mt-1 text-xs text-gray-900">양식: 문항번호,정답,배점 (예: 1,3,2)</p>
           </div>
           <div className="mt-4 flex gap-2">
             <button onClick={handleSaveEdit} disabled={saving}
               className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
               {saving ? "저장 중..." : "저장 (재채점)"}
             </button>
-            <button onClick={() => setEditing(false)} className="rounded-lg border px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">취소</button>
+            <button onClick={() => setEditing(false)} className="rounded-lg border px-4 py-2 text-xs font-medium text-gray-900 hover:bg-gray-50">취소</button>
           </div>
           {submissions.length > 0 && <p className="mt-2 text-xs text-amber-600">저장 시 기존 제출물 {submissions.length}건이 자동으로 재채점됩니다.</p>}
         </div>
@@ -362,7 +362,7 @@ function AssignmentsContent() {
         <div className="mb-8 grid grid-cols-10 gap-2 rounded-lg bg-white p-4 shadow-sm">
           {assignment.questions.map((q) => (
             <div key={q.questionNumber} className="text-center">
-              <span className="block text-xs text-gray-400">{q.questionNumber}</span>
+              <span className="block text-xs text-gray-900">{q.questionNumber}</span>
               <span className="text-sm font-bold text-blue-600">{q.correctAnswer}</span>
             </div>
           ))}
@@ -379,12 +379,12 @@ function AssignmentsContent() {
             </button>
           )}
         </div>
-        <p className="mb-3 text-xs text-gray-500">
+        <p className="mb-3 text-xs text-gray-900">
           1차: PDF → 코드로 텍스트 직접 추출 (2단 레이아웃 처리) → 2차: 정규식 청킹 → 3차: GPT-4o-mini JSON 태깅 (청크별 처리, 토큰 초과 없음)
         </p>
         <div className="flex items-center gap-3">
           <input type="file" accept=".pdf" onChange={handlePdfUpload} disabled={extracting}
-            className="block text-xs text-gray-500 file:mr-2 file:rounded file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-indigo-600 hover:file:bg-indigo-100 disabled:opacity-50" />
+            className="block text-xs text-gray-900 file:mr-2 file:rounded file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-indigo-600 hover:file:bg-indigo-100 disabled:opacity-50" />
           {extracting && <span className="text-xs text-indigo-600">{extractStep}</span>}
           {examData && !extracting && (
             <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
@@ -406,7 +406,7 @@ function AssignmentsContent() {
                   { key: "raw", label: "PDF 원본" },
                 ] as { key: typeof viewMode; label: string }[]).map((tab) => (
                   <button key={tab.key} onClick={() => setViewMode(tab.key)}
-                    className={`rounded-t px-3 py-1 text-xs font-medium ${viewMode === tab.key ? "bg-indigo-600 text-white" : "bg-gray-200 text-gray-600 hover:bg-gray-300"}`}>
+                    className={`rounded-t px-3 py-1 text-xs font-medium ${viewMode === tab.key ? "bg-indigo-600 text-white" : "bg-gray-200 text-gray-900 hover:bg-gray-300"}`}>
                     {tab.label}
                   </button>
                 ))}
@@ -414,7 +414,7 @@ function AssignmentsContent() {
               {/* 다운로드 */}
               <div className="flex gap-1">
                 <button onClick={() => downloadFile(examData.raw, `${assignment.title}_PDF원본.txt`, "text/plain;charset=utf-8;")}
-                  className="rounded border border-gray-400 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">TXT</button>
+                  className="rounded border border-gray-400 px-2 py-1 text-xs font-medium text-gray-900 hover:bg-gray-50">TXT</button>
                 <button onClick={() => downloadFile(JSON.stringify(examData.sections, null, 2), `${assignment.title}_구조화.json`, "application/json;charset=utf-8;")}
                   className="rounded border border-blue-400 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50">JSON</button>
                 {markdownContent && (
@@ -442,7 +442,7 @@ function AssignmentsContent() {
             )}
             {viewMode === "raw" && (
               <div>
-                <p className="mb-1 text-xs text-gray-400">pdfjs-dist가 추출한 원본 텍스트 ({examData.raw.length.toLocaleString()}자)</p>
+                <p className="mb-1 text-xs text-gray-900">pdfjs-dist가 추출한 원본 텍스트 ({examData.raw.length.toLocaleString()}자)</p>
                 <div className="max-h-[36rem] overflow-y-auto rounded border bg-gray-900 p-4 font-mono text-xs leading-relaxed text-green-400 whitespace-pre-wrap">
                   {examData.raw}
                 </div>
@@ -463,10 +463,10 @@ function AssignmentsContent() {
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>
-              <th className="px-4 py-3 font-medium text-gray-600">학생</th>
-              <th className="px-4 py-3 font-medium text-gray-600">점수</th>
-              <th className="px-4 py-3 font-medium text-gray-600">정답률</th>
-              <th className="px-4 py-3 font-medium text-gray-600">제출일</th>
+              <th className="px-4 py-3 font-medium text-gray-900">학생</th>
+              <th className="px-4 py-3 font-medium text-gray-900">점수</th>
+              <th className="px-4 py-3 font-medium text-gray-900">정답률</th>
+              <th className="px-4 py-3 font-medium text-gray-900">제출일</th>
             </tr>
           </thead>
           <tbody>
@@ -475,11 +475,11 @@ function AssignmentsContent() {
                 <td className="px-4 py-3">{s.student.name || s.student.email}</td>
                 <td className="px-4 py-3 font-medium">{s.score}/{s.totalPoints}</td>
                 <td className="px-4 py-3">{s.totalPoints ? ((s.score! / s.totalPoints) * 100).toFixed(0) : 0}%</td>
-                <td className="px-4 py-3 text-gray-500">{new Date(s.submittedAt).toLocaleDateString("ko-KR")}</td>
+                <td className="px-4 py-3 text-gray-900">{new Date(s.submittedAt).toLocaleDateString("ko-KR")}</td>
               </tr>
             ))}
             {submissions.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">아직 제출한 학생이 없습니다.</td></tr>
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-900">아직 제출한 학생이 없습니다.</td></tr>
             )}
           </tbody>
         </table>
@@ -490,7 +490,7 @@ function AssignmentsContent() {
 
 export default function AssignmentsPage() {
   return (
-    <Suspense fallback={<p className="text-gray-500">로딩 중...</p>}>
+    <Suspense fallback={<p className="text-gray-900">로딩 중...</p>}>
       <AssignmentsContent />
     </Suspense>
   );

@@ -37,7 +37,7 @@ function SelectOrInput({
 
   return (
     <div>
-      <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
+      <label className="mb-1 block text-sm font-medium text-gray-900">{label}</label>
       {mode === "select" ? (
         <>
           <select
@@ -72,7 +72,7 @@ function SelectOrInput({
             <button
               type="button"
               onClick={() => { setMode("select"); onChange(""); }}
-              className="shrink-0 rounded-lg border px-3 py-2 text-xs text-gray-500 hover:bg-gray-50"
+              className="shrink-0 rounded-lg border px-3 py-2 text-xs text-gray-900 hover:bg-gray-50"
             >
               목록에서 선택
             </button>
@@ -128,7 +128,7 @@ export default function ProfilePage() {
     setSaving(false);
   }
 
-  if (loading) return <p className="text-gray-500">로딩 중...</p>;
+  if (loading) return <p className="text-gray-900">로딩 중...</p>;
 
   return (
     <div className="mx-auto max-w-lg">
@@ -136,14 +136,14 @@ export default function ProfilePage() {
 
       <div className="space-y-4 rounded-lg bg-white p-6 shadow-sm">
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">이메일</label>
-          <p className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-500">
+          <label className="mb-1 block text-sm font-medium text-gray-900">이메일</label>
+          <p className="rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-900">
             {profile?.email}
           </p>
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">이름</label>
+          <label className="mb-1 block text-sm font-medium text-gray-900">이름</label>
           <input
             type="text"
             value={name}

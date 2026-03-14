@@ -89,3 +89,33 @@ export async function PUT(
 
   return NextResponse.json(user);
 }
+
+// DELETE: Admin deletes a student and all related data
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user || user.role !== "STUDENT") {
+    return NextResponse.json({ error: "Student not found" }, { status: 404 });
+  }
+
+  // Delete in order: analysis results, submission answers, submissions, accounts/sessions, then user
+  await prisma.studentAnalysisResult.deleteMany({ where: { studentId: id } });
+  await prisma.submissionAnswer.deleteMany({
+    where: { submission: { studentId: id } },
+  });
+  await prisma.submission.deleteMany({ where: { studentId: id } });
+  await prisma.account.deleteMany({ where: { userId: id } });
+  await prisma.session.deleteMany({ where: { userId: id } });
+  await prisma.user.delete({ where: { id } });
+
+  return NextResponse.json({ success: true });
+}

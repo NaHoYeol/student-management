@@ -32,6 +32,7 @@ function groupSortKey(key: string): string {
 export default function StudentsPage() {
   const [students, setStudents] = useState<StudentData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/students")
@@ -42,6 +43,23 @@ export default function StudentsPage() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  async function handleDelete(student: StudentData) {
+    const label = student.name || student.email;
+    if (!confirm(`"${label}" 학생을 삭제하시겠습니까?\n제출 기록, 분석 결과 등 모든 데이터가 함께 삭제됩니다.`)) return;
+    setDeletingId(student.id);
+    try {
+      const res = await fetch(`/api/admin/students/${student.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setStudents((prev) => prev.filter((s) => s.id !== student.id));
+      } else {
+        alert("삭제에 실패했습니다.");
+      }
+    } catch {
+      alert("삭제에 실패했습니다.");
+    }
+    setDeletingId(null);
+  }
 
   if (loading) return <p className="text-black">로딩 중...</p>;
 
@@ -82,6 +100,7 @@ export default function StudentsPage() {
                     <th className="px-4 py-3 font-medium text-black">이메일</th>
                     <th className="px-4 py-3 font-medium text-black">제출 수</th>
                     <th className="px-4 py-3 font-medium text-black">평균 점수</th>
+                    <th className="px-4 py-3 font-medium text-black w-20"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -99,6 +118,15 @@ export default function StudentsPage() {
                       <td className="px-4 py-3">{s.submissionCount}개</td>
                       <td className="px-4 py-3">
                         {s.avgScore !== null ? `${s.avgScore}점` : "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={(e) => { e.preventDefault(); handleDelete(s); }}
+                          disabled={deletingId === s.id}
+                          className="rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {deletingId === s.id ? "삭제 중..." : "삭제"}
+                        </button>
                       </td>
                     </tr>
                   ))}

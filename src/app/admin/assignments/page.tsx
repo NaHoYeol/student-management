@@ -693,7 +693,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
                     {s.score}/{s.totalPoints} ({s.totalPoints ? ((s.score! / s.totalPoints) * 100).toFixed(0) : 0}%)
                   </span>
                   <span className="text-xs text-black">
-                    {new Date(s.submittedAt).toLocaleDateString("ko-KR")}
+                    {new Date(s.submittedAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </span>
                   {/* 재제출 승인 버튼 */}
                   {!s.resubmitApproved ? (

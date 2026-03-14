@@ -60,6 +60,11 @@ function AnalysisContent() {
       });
   }, [assignmentId]);
 
+  // 페이지 진입 시 자동 분석
+  useEffect(() => {
+    runAnalysis();
+  }, [runAnalysis]);
+
   // Load student submissions for this assignment
   useEffect(() => {
     if (!assignmentId || !analysis) return;

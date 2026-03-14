@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { AnalysisResult } from "@/lib/statistics";
 
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
@@ -14,6 +15,18 @@ function Bar({ value, max, color }: { value: number; max: number; color: string 
   );
 }
 
+const gradeColors: Record<number, string> = {
+  1: "bg-blue-100 text-blue-800",
+  2: "bg-blue-50 text-blue-700",
+  3: "bg-green-100 text-green-800",
+  4: "bg-green-50 text-green-700",
+  5: "bg-yellow-100 text-yellow-800",
+  6: "bg-yellow-50 text-yellow-700",
+  7: "bg-orange-100 text-orange-800",
+  8: "bg-red-50 text-red-700",
+  9: "bg-red-100 text-red-800",
+};
+
 export function AnalysisReport({
   title,
   analysis,
@@ -27,6 +40,8 @@ export function AnalysisReport({
   const maxBandRate = Math.max(...a.scoreBands.map((b) => b.rate), 1);
   const maxBandCount = Math.max(...a.scoreBands.map((b) => b.count), 1);
   const maxChoiceRate = 100;
+
+  const [showAllChoices, setShowAllChoices] = useState(false);
 
   return (
     <div id="analysis-report" className="space-y-8">
@@ -45,6 +60,52 @@ export function AnalysisReport({
           </p>
         )}
       </div>
+
+      {/* 등급컷 */}
+      {a.gradeCutoffs && a.gradeCutoffs.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-lg font-semibold">등급컷</h2>
+          <div className="rounded-lg bg-white shadow-sm overflow-hidden">
+            <table className="w-full text-center text-sm">
+              <thead className="border-b bg-gray-50">
+                <tr>
+                  {a.gradeCutoffs.map((c) => (
+                    <th key={c.grade} className="px-2 py-3 font-medium text-black">
+                      {c.grade}등급
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b">
+                  {a.gradeCutoffs.map((c) => (
+                    <td key={c.grade} className="px-2 py-3">
+                      <span className={`inline-block rounded-full px-3 py-1 text-sm font-bold ${gradeColors[c.grade] || ""}`}>
+                        {c.minScore === c.maxScore
+                          ? `${c.minScore}점`
+                          : `${c.minScore}~${c.maxScore}점`
+                        }
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+                {!hideCount && (
+                  <tr>
+                    {a.gradeCutoffs.map((c) => (
+                      <td key={c.grade} className="px-2 py-2 text-xs text-black">
+                        {c.count}명
+                      </td>
+                    ))}
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-1.5 text-xs text-black">
+            9등급 누적비율: 4% / 11% / 23% / 40% / 60% / 77% / 89% / 96% / 100%
+          </p>
+        </div>
+      )}
 
       {/* 기초통계량 카드 */}
       <div>
@@ -151,6 +212,78 @@ export function AnalysisReport({
             ))}
           </div>
         </div>
+      </div>
+
+      {/* 문항별 선지 분포 (전체) */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">문항별 선지 분포</h2>
+          <button
+            onClick={() => setShowAllChoices(!showAllChoices)}
+            className="text-xs font-medium text-blue-600 hover:underline print:hidden"
+          >
+            {showAllChoices ? "접기" : "펼치기"}
+          </button>
+        </div>
+        {showAllChoices && (
+          <div className="rounded-lg bg-white shadow-sm overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b bg-gray-50">
+                <tr>
+                  <th className="px-3 py-3 font-medium text-black">문항</th>
+                  <th className="px-3 py-3 font-medium text-black">정답</th>
+                  <th className="px-3 py-3 font-medium text-black">정답률</th>
+                  <th className="px-3 py-3 font-medium text-black text-center">1번</th>
+                  <th className="px-3 py-3 font-medium text-black text-center">2번</th>
+                  <th className="px-3 py-3 font-medium text-black text-center">3번</th>
+                  <th className="px-3 py-3 font-medium text-black text-center">4번</th>
+                  <th className="px-3 py-3 font-medium text-black text-center">5번</th>
+                </tr>
+              </thead>
+              <tbody>
+                {a.questionStats.map((q) => {
+                  // 정답 아닌 선지 중 가장 많이 선택된 선지 찾기
+                  let maxWrongIdx = -1;
+                  let maxWrongRate = 0;
+                  q.choiceRates.forEach((r, i) => {
+                    if (i + 1 !== q.correctAnswer && r > maxWrongRate) {
+                      maxWrongRate = r;
+                      maxWrongIdx = i;
+                    }
+                  });
+
+                  return (
+                    <tr key={q.questionNumber} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="px-3 py-2.5 font-medium">{q.questionNumber}번</td>
+                      <td className="px-3 py-2.5 font-bold text-blue-600">{q.correctAnswer}</td>
+                      <td className={`px-3 py-2.5 font-medium ${
+                        q.correctRate >= 80 ? "text-green-600"
+                          : q.correctRate >= 50 ? "text-yellow-600"
+                          : "text-red-600"
+                      }`}>
+                        {q.correctRate.toFixed(1)}%
+                      </td>
+                      {q.choiceRates.map((r, i) => (
+                        <td
+                          key={i}
+                          className={`px-3 py-2.5 text-center ${
+                            i + 1 === q.correctAnswer
+                              ? "font-bold text-blue-600"
+                              : i === maxWrongIdx && maxWrongRate >= 20
+                                ? "font-medium text-red-500"
+                                : "text-black"
+                          }`}
+                        >
+                          {r.toFixed(0)}%
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* 오답률 높은 문항 TOP 5 */}

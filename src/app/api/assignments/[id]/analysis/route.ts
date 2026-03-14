@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computeAnalysis } from "@/lib/statistics";
+import { computeAnalysis, computeGradeCutoffs } from "@/lib/statistics";
 
 // GET: Get analysis for an assignment
 export async function GET(
@@ -21,9 +21,6 @@ export async function GET(
     include: {
       questions: { orderBy: { questionNumber: "asc" } },
       submissions: {
-        // Students see all submissions (agents + real) for full distribution
-        // Admin sees only real submissions
-        where: isStudent ? {} : { isAgent: false },
         include: {
           answers: { orderBy: { questionNumber: "asc" } },
         },
@@ -40,19 +37,26 @@ export async function GET(
     return NextResponse.json({ error: "Not published" }, { status: 403 });
   }
 
-  if (assignment.submissions.length === 0) {
+  // Admin: real students only for main stats / Student: all for distribution context
+  const statsSubmissions = isStudent
+    ? assignment.submissions
+    : assignment.submissions.filter((s) => !s.isAgent);
+
+  if (statsSubmissions.length === 0) {
     return NextResponse.json({ error: "No submissions" }, { status: 400 });
   }
 
   const totalPoints =
     assignment.questions.reduce((s, q) => s + q.points, 0);
 
+  const questionInputs = assignment.questions.map((q) => ({
+    questionNumber: q.questionNumber,
+    correctAnswer: q.correctAnswer,
+  }));
+
   const analysis = computeAnalysis(
-    assignment.questions.map((q) => ({
-      questionNumber: q.questionNumber,
-      correctAnswer: q.correctAnswer,
-    })),
-    assignment.submissions.map((s) => ({
+    questionInputs,
+    statsSubmissions.map((s) => ({
       score: s.score ?? 0,
       answers: s.answers.map((a) => ({
         questionNumber: a.questionNumber,
@@ -62,6 +66,18 @@ export async function GET(
     })),
     totalPoints
   );
+
+  // 에이전트 포함 전체 점수로 등급컷 산출 (관리자용)
+  const agentSubmissions = assignment.submissions.filter((s) => s.isAgent);
+  if (!isStudent && agentSubmissions.length > 0) {
+    const allScores = assignment.submissions.map((s) => s.score ?? 0);
+    analysis.gradeCutoffs = computeGradeCutoffs(allScores, totalPoints);
+  }
+  // 학생용: 에이전트 포함 데이터로 등급컷 산출
+  if (isStudent && agentSubmissions.length > 0) {
+    const allScores = assignment.submissions.map((s) => s.score ?? 0);
+    analysis.gradeCutoffs = computeGradeCutoffs(allScores, totalPoints);
+  }
 
   return NextResponse.json({
     title: assignment.title,

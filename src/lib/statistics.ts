@@ -14,6 +14,13 @@ export interface ScoreBand {
   rate: number; // %
 }
 
+export interface GradeCutoff {
+  grade: number;
+  minScore: number;
+  maxScore: number;
+  count: number;
+}
+
 export interface AnalysisResult {
   // 기본 정보
   totalStudents: number;
@@ -45,6 +52,9 @@ export interface AnalysisResult {
   // 상위/하위 문항
   hardestQuestions: QuestionStat[];
   easiestQuestions: QuestionStat[];
+
+  // 등급컷 (에이전트 포함 시)
+  gradeCutoffs?: GradeCutoff[];
 }
 
 interface SubInput {
@@ -173,6 +183,40 @@ export function computeAnalysis(
     hardestQuestions,
     easiestQuestions,
   };
+}
+
+// 에이전트 포함 전체 점수로 9등급 등급컷 산출
+export function computeGradeCutoffs(allScores: number[], totalPoints: number): GradeCutoff[] {
+  if (allScores.length === 0) return [];
+  const sorted = [...allScores].sort((a, b) => b - a); // 내림차순
+  const n = sorted.length;
+  // 누적 비율: 4%, 11%, 23%, 40%, 60%, 77%, 89%, 96%, 100%
+  const cumPercents = [4, 11, 23, 40, 60, 77, 89, 96, 100];
+  const cutoffs: GradeCutoff[] = [];
+  let prevIdx = 0;
+
+  for (let g = 0; g < 9; g++) {
+    const endIdx = Math.min(Math.ceil((cumPercents[g] / 100) * n), n);
+    const gradeScores = sorted.slice(prevIdx, endIdx);
+    if (gradeScores.length > 0) {
+      cutoffs.push({
+        grade: g + 1,
+        maxScore: gradeScores[0],
+        minScore: gradeScores[gradeScores.length - 1],
+        count: gradeScores.length,
+      });
+    } else {
+      cutoffs.push({
+        grade: g + 1,
+        maxScore: prevIdx > 0 ? sorted[prevIdx - 1] : totalPoints,
+        minScore: prevIdx > 0 ? sorted[prevIdx - 1] : totalPoints,
+        count: 0,
+      });
+    }
+    prevIdx = endIdx;
+  }
+
+  return cutoffs;
 }
 
 function round2(v: number): number {

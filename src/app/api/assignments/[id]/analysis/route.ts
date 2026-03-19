@@ -37,14 +37,18 @@ export async function GET(
     return NextResponse.json({ error: "Not published" }, { status: 403 });
   }
 
-  // Admin: real students only for main stats / Student: all for distribution context
+  // Admin: prefer real students, fall back to all (including agents) if none
+  // Student: all submissions for distribution context
+  const realSubmissions = assignment.submissions.filter((s) => !s.isAgent);
   const statsSubmissions = isStudent
     ? assignment.submissions
-    : assignment.submissions.filter((s) => !s.isAgent);
+    : realSubmissions.length > 0 ? realSubmissions : assignment.submissions;
 
   if (statsSubmissions.length === 0) {
     return NextResponse.json({ error: "No submissions" }, { status: 400 });
   }
+
+  const agentOnly = !isStudent && realSubmissions.length === 0;
 
   const totalPoints =
     assignment.questions.reduce((s, q) => s + q.points, 0);
@@ -85,6 +89,7 @@ export async function GET(
     analysisPublished: assignment.analysisPublished,
     analysis,
     isStudent,
+    agentOnly: agentOnly ?? false,
   });
 }
 

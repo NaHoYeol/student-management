@@ -1,16 +1,16 @@
 import { gradeSubmission } from "./grading";
 
-// 수능 9등급 분포: 4-7-12-17-20-17-12-7-4 (총 100명)
+// 수능 9등급 분포 (총 20명): 등급별 최소 1명 + 비율 반영
 const GRADE_DISTRIBUTION: { grade: number; count: number; accuracyRange: [number, number] }[] = [
-  { grade: 1, count: 4, accuracyRange: [0.93, 0.99] },
-  { grade: 2, count: 7, accuracyRange: [0.85, 0.93] },
-  { grade: 3, count: 12, accuracyRange: [0.76, 0.85] },
-  { grade: 4, count: 17, accuracyRange: [0.65, 0.76] },
-  { grade: 5, count: 20, accuracyRange: [0.50, 0.65] },
-  { grade: 6, count: 17, accuracyRange: [0.38, 0.50] },
-  { grade: 7, count: 12, accuracyRange: [0.25, 0.38] },
-  { grade: 8, count: 7, accuracyRange: [0.13, 0.25] },
-  { grade: 9, count: 4, accuracyRange: [0.03, 0.13] },
+  { grade: 1, count: 1, accuracyRange: [0.93, 0.99] },
+  { grade: 2, count: 1, accuracyRange: [0.85, 0.93] },
+  { grade: 3, count: 2, accuracyRange: [0.76, 0.85] },
+  { grade: 4, count: 3, accuracyRange: [0.65, 0.76] },
+  { grade: 5, count: 4, accuracyRange: [0.50, 0.65] },
+  { grade: 6, count: 3, accuracyRange: [0.38, 0.50] },
+  { grade: 7, count: 3, accuracyRange: [0.25, 0.38] },
+  { grade: 8, count: 2, accuracyRange: [0.13, 0.25] },
+  { grade: 9, count: 1, accuracyRange: [0.03, 0.13] },
 ];
 
 export interface QuestionInfo {
@@ -266,8 +266,8 @@ function findNearestWrongAnswer(
 }
 
 /**
- * GPT가 등급별로 실제 풀이한 결과를 기반으로 100명 에이전트 생성.
- * 9명의 대표 결과를 근접도 가중 보간하여 나머지 91명의 답안을 생성.
+ * GPT가 등급별로 판단한 결과를 기반으로 20명 에이전트 생성.
+ * 9명의 대표 결과를 근접도 가중 보간하여 나머지 11명의 답안을 생성.
  */
 export function generateAllAgentSubmissionsFromGptResults(
   questions: QuestionInfo[],
@@ -337,14 +337,14 @@ export function generateAllAgentSubmissionsFromGptResults(
   return results;
 }
 
-// 실제 점수를 100명 에이전트 점수 속에 넣어 등급 추정
+// 실제 점수를 20명 에이전트 점수 속에 넣어 등급 추정
 export function estimateGrade(
   studentScore: number,
   agentScores: number[]
 ): { grade: number; rank: number; percentile: number } {
   const all = [...agentScores, studentScore].sort((a, b) => b - a);
   const rank = all.indexOf(studentScore) + 1;
-  const totalCount = all.length; // 101 (100 agents + 1 student)
+  const totalCount = all.length; // 21 (20 agents + 1 student)
   const percentile = ((totalCount - rank) / totalCount) * 100;
 
   // 수능 등급 컷 (누적 비율 기준)

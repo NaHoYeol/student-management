@@ -1,7 +1,7 @@
 import { gradeSubmission } from "./grading";
 
 // 수능 9등급 분포 (총 100명): 수능 비율 반영
-const GRADE_DISTRIBUTION: { grade: number; count: number; accuracyRange: [number, number] }[] = [
+export const GRADE_DISTRIBUTION: { grade: number; count: number; accuracyRange: [number, number] }[] = [
   { grade: 1, count: 4, accuracyRange: [0.93, 0.99] },
   { grade: 2, count: 7, accuracyRange: [0.85, 0.93] },
   { grade: 3, count: 12, accuracyRange: [0.76, 0.85] },
@@ -345,6 +345,37 @@ export function generateAllAgentSubmissionsFromGptResults(
   }
 
   return results;
+}
+
+/**
+ * GPT 100명의 직접 판단 결과를 채점하여 AgentSubmissionData로 변환.
+ * 보간 없이 GPT 응답을 그대로 사용.
+ */
+export function gradeGptResultsDirectly(
+  questions: QuestionInfo[],
+  gptResults: GptGradeResult[]
+): AgentSubmissionData[] {
+  return gptResults.map((gr) => {
+    const answers = questions.map((q) => {
+      const ans = gr.answers.find((a) => a.questionNumber === q.questionNumber);
+      return {
+        questionNumber: q.questionNumber,
+        studentAnswer: ans ? String(ans.answer).trim() : "__wrong__",
+      };
+    });
+    const graded = gradeSubmission(questions, answers);
+    return {
+      agentGrade: gr.grade,
+      answers,
+      score: graded.score,
+      totalPoints: graded.totalPoints,
+      details: graded.details.map((d) => ({
+        questionNumber: d.questionNumber,
+        studentAnswer: d.studentAnswer,
+        isCorrect: d.isCorrect,
+      })),
+    };
+  });
 }
 
 // 실제 점수를 100명 에이전트 점수 속에 넣어 등급 추정

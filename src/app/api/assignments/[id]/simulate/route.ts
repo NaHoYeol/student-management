@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateAllAgentSubmissions, generateAllAgentSubmissionsFromGptResults } from "@/lib/agent-simulation";
+import { generateAllAgentSubmissions, generateAllAgentSubmissionsFromGptResults, gradeGptResultsDirectly, GRADE_DISTRIBUTION } from "@/lib/agent-simulation";
 import type { QuestionDifficulty, GptGradeResult } from "@/lib/agent-simulation";
 import { parseStoredExamData, sectionsToMarkdown } from "@/lib/exam-parser";
 import OpenAI from "openai";
@@ -117,20 +117,17 @@ ${examContent}
   }
 }
 
-// ─── 등급별 대표 에이전트 GPT 판단 (20명) ────────────────────────
+// ─── 100명 에이전트 GPT 병렬 판단 ────────────────────────────────
 
-// GPT 호출 분포: 총 20명 (수능 비율 기반, 등급별 최소 1명)
-const GPT_CALL_DISTRIBUTION: { grade: number; count: number }[] = [
-  { grade: 1, count: 1 },
-  { grade: 2, count: 1 },
-  { grade: 3, count: 2 },
-  { grade: 4, count: 3 },
-  { grade: 5, count: 4 },
-  { grade: 6, count: 3 },
-  { grade: 7, count: 3 },
-  { grade: 8, count: 2 },
-  { grade: 9, count: 1 },
-];
+function getSubGradeHint(index: number, total: number): string {
+  if (total <= 1) return "";
+  const position = index / (total - 1); // 0.0 (최상위) ~ 1.0 (최하위)
+  if (position <= 0.15) return "\n※ 이 학생은 이 등급 내에서 최상위에 해당합니다.";
+  if (position <= 0.35) return "\n※ 이 학생은 이 등급 내에서 상위에 해당합니다.";
+  if (position <= 0.65) return "\n※ 이 학생은 이 등급 내에서 중간에 해당합니다.";
+  if (position <= 0.85) return "\n※ 이 학생은 이 등급 내에서 하위에 해당합니다.";
+  return "\n※ 이 학생은 이 등급 내에서 최하위에 해당합니다.";
+}
 
 const GRADE_SOLVE_PROFILES = [
   {
@@ -198,13 +195,12 @@ const GRADE_SOLVE_PROFILES = [
   },
 ];
 
-async function solveExamByGrades(
+async function solveExamAllAgents(
   apiKey: string,
   examContent: string,
   questions: { questionNumber: number; correctAnswer: string; questionType: string }[]
 ): Promise<GptGradeResult[]> {
   const openai = new OpenAI({ apiKey });
-  const totalQ = questions.length;
 
   const questionsInfo = questions
     .map((q) => {
@@ -231,24 +227,17 @@ async function solveExamByGrades(
 - 복수정답: "1,3" 형태
 - 주관식: 답을 직접 작성 (모르면 아무 답이나 적기)`;
 
-  // 20명 GPT 호출 목록 생성 (등급별 분포에 따라)
+  // 100명 GPT 호출 목록 생성 (수능 등급 분포: 4-7-12-17-20-17-12-7-4)
   const calls: { profile: typeof GRADE_SOLVE_PROFILES[0]; subGradeHint: string }[] = [];
-  for (const { grade, count } of GPT_CALL_DISTRIBUTION) {
+  for (const { grade, count } of GRADE_DISTRIBUTION) {
     const profile = GRADE_SOLVE_PROFILES.find((p) => p.grade === grade)!;
     for (let i = 0; i < count; i++) {
-      let hint = "";
-      if (count === 2) {
-        hint = i === 0 ? "\n※ 이 학생은 이 등급 내에서 상위에 해당합니다." : "\n※ 이 학생은 이 등급 내에서 하위에 해당합니다.";
-      } else if (count === 3) {
-        hint = `\n※ 이 학생은 이 등급 내에서 ${["상위", "중간", "하위"][i]}에 해당합니다.`;
-      } else if (count >= 4) {
-        hint = `\n※ 이 학생은 이 등급 내에서 ${["최상위", "상위", "하위", "최하위"][i]}에 해당합니다.`;
-      }
-      calls.push({ profile, subGradeHint: hint });
+      calls.push({ profile, subGradeHint: getSubGradeHint(i, count) });
     }
   }
 
-  const promises = calls.map(async ({ profile, subGradeHint }) => {
+  // 100명 전원 병렬 호출
+  const makeCall = async ({ profile, subGradeHint }: typeof calls[0]): Promise<GptGradeResult | null> => {
     try {
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -290,13 +279,16 @@ ${questionsInfo}
     } catch {
       return null;
     }
-  });
+  };
 
-  const allResults = await Promise.all(promises);
+  const allResults = await Promise.all(calls.map(makeCall));
   return allResults.filter((r): r is GptGradeResult => r !== null && r.answers.length > 0);
 }
 
-// POST: Generate 100 agent submissions (20 GPT calls → 100 interpolated) for an assignment (Admin only)
+// Vercel 서버리스 함수 타임아웃 설정 (100명 병렬 GPT 호출 + DB 저장)
+export const maxDuration = 120;
+
+// POST: Generate 100 agent submissions via 100 parallel GPT calls (Admin only)
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -357,19 +349,23 @@ export async function POST(
     points: q.points,
   }));
 
-  // 1차: 시험지가 있으면 등급별 GPT 풀이 시도 (9회 병렬 호출)
+  // 1차: 시험지가 있으면 100명 전원 GPT 병렬 호출
   let agentResults;
   let simulationMethod = "simple";
 
   if (contentForGpt && apiKey && apiKey !== "x") {
-    const gptResults = await solveExamByGrades(apiKey, contentForGpt, questionsForSim);
+    const gptResults = await solveExamAllAgents(apiKey, contentForGpt, questionsForSim);
 
-    if (gptResults.length >= 5) {
-      // 충분한 등급 결과 → GPT 풀이 기반 생성
+    if (gptResults.length >= 80) {
+      // 80%+ 성공 → GPT 결과 직접 채점 (보간 없음)
+      agentResults = gradeGptResultsDirectly(questionsForSim, gptResults);
+      simulationMethod = "gpt-direct";
+    } else if (gptResults.length >= 10) {
+      // 부분 성공 → 확보된 결과로 보간 확장
       agentResults = generateAllAgentSubmissionsFromGptResults(questionsForSim, gptResults);
-      simulationMethod = "gpt-solve";
+      simulationMethod = "gpt-interpolated";
     } else {
-      // GPT 풀이 실패 → 난이도 분석 폴백
+      // GPT 대부분 실패 → 난이도 분석 폴백
       const difficulties = await analyzeDifficulty(
         contentForGpt,
         assignment.questions.map((q) => ({

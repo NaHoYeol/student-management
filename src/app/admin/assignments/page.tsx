@@ -90,7 +90,7 @@ interface Submission {
   submittedAt: string;
   resubmitApproved?: boolean;
   student: { id?: string; name: string | null; email: string };
-  answers: { questionNumber: number; studentAnswer: number; isCorrect: boolean }[];
+  answers: { questionNumber: number; studentAnswer: string; isCorrect: boolean }[];
   isAgent?: boolean;
 }
 
@@ -98,7 +98,7 @@ interface Assignment {
   id: string;
   title: string;
   totalQuestions: number;
-  questions: { questionNumber: number; correctAnswer: number; points: number }[];
+  questions: { questionNumber: number; correctAnswer: string; questionType: string; points: number }[];
   examContent?: string;
 }
 
@@ -270,7 +270,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editAnswers, setEditAnswers] = useState<{ questionNumber: number; correctAnswer: number; points: number }[]>([]);
+  const [editAnswers, setEditAnswers] = useState<{ questionNumber: number; correctAnswer: string; questionType: string; points: number }[]>([]);
   const [saving, setSaving] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [agentCount, setAgentCount] = useState(0);
@@ -375,22 +375,37 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
       alert("시뮬레이션에 실패했습니다.");
     }
     setSimulating(false);
+    loadData();
   }
 
   useEffect(() => { loadData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [assignmentId]);
 
   function startEditing() {
     if (!assignment) return;
-    setEditAnswers(assignment.questions.map((q) => ({ questionNumber: q.questionNumber, correctAnswer: q.correctAnswer, points: q.points })));
+    setEditAnswers(assignment.questions.map((q) => ({
+      questionNumber: q.questionNumber,
+      correctAnswer: String(q.correctAnswer),
+      questionType: q.questionType || "choice",
+      points: q.points,
+    })));
     setEditing(true);
   }
 
-  function updateEditAnswer(index: number, answer: number) {
+  function updateEditAnswer(index: number, answer: string) {
     setEditAnswers((prev) => prev.map((q, i) => (i === index ? { ...q, correctAnswer: answer } : q)));
   }
 
+  function updateEditQuestionType(index: number, type: string) {
+    setEditAnswers((prev) => prev.map((q, i) => {
+      if (i !== index) return q;
+      const defaultAnswer = type === "choice" ? "1" : type === "multiple" ? "1,2" : "";
+      return { ...q, questionType: type, correctAnswer: defaultAnswer };
+    }));
+  }
+
   function downloadEditSampleCSV() {
-    const rows = ["문항번호,정답,배점", ...editAnswers.map((q) => `${q.questionNumber},${q.correctAnswer},${q.points}`)];
+    const typeLabel = (t: string) => t === "multiple" ? "복수정답" : t === "subjective" ? "주관식" : "객관식";
+    const rows = ["문항번호,정답,배점,유형", ...editAnswers.map((q) => `${q.questionNumber},${q.correctAnswer},${q.points},${typeLabel(q.questionType)}`)];
     downloadFile(rows.join("\n"), "정답표.csv", "text/csv;charset=utf-8;");
   }
 
@@ -401,17 +416,29 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const lines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean);
-      const parsed: { questionNumber: number; correctAnswer: number; points: number | null }[] = [];
+      const parsed: { questionNumber: number; correctAnswer: string; questionType: string; points: number | null }[] = [];
       let hasExplicitPoints = false;
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (i === 0 && /[가-힣a-zA-Z]/.test(line)) continue;
         const cols = line.split(",").map((c) => c.trim());
         if (cols.length < 2) continue;
-        const qn = parseInt(cols[0]), ca = parseInt(cols[1]), ep = cols[2] ? parseInt(cols[2]) : null;
-        if (ep !== null) hasExplicitPoints = true;
-        if (isNaN(qn) || isNaN(ca) || ca < 1 || ca > 5) { alert("CSV 형식이 올바르지 않습니다."); return; }
-        parsed.push({ questionNumber: qn, correctAnswer: ca, points: ep });
+        const qn = parseInt(cols[0]);
+        const ca = cols[1];
+        if (isNaN(qn) || !ca) { alert("CSV 형식이 올바르지 않습니다."); return; }
+        const ep = cols[2] ? parseInt(cols[2]) : null;
+        if (ep !== null && !isNaN(ep)) hasExplicitPoints = true;
+        // 유형 감지
+        let questionType = "choice";
+        if (cols[3]) {
+          const typeStr = cols[3].toLowerCase();
+          if (typeStr.includes("복수") || typeStr === "multiple") questionType = "multiple";
+          else if (typeStr.includes("주관") || typeStr === "subjective") questionType = "subjective";
+        } else {
+          const num = parseInt(ca);
+          if (isNaN(num) || num < 1 || num > 5) questionType = "subjective";
+        }
+        parsed.push({ questionNumber: qn, correctAnswer: ca, questionType, points: ep !== null && !isNaN(ep) ? ep : null });
       }
       if (parsed.length > 0) {
         parsed.sort((a, b) => a.questionNumber - b.questionNumber);
@@ -533,7 +560,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
             className="rounded-lg border border-indigo-600 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-50">
             {simulating ? "생성 중..." : agentCount > 0 ? `Agent 재생성 (${agentCount}명)` : "Agent 시뮬레이션"}
           </button>
-          {submissions.length > 0 && (
+          {(submissions.length > 0 || agentCount > 0) && (
             <Link href={`/admin/assignments/analysis?id=${assignmentId}`}
               className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">성적 분석</Link>
           )}
@@ -547,14 +574,49 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
       </div>
       {editing ? (
         <div className="mb-8 rounded-lg bg-white p-4 shadow-sm">
-          <div className="grid grid-cols-5 gap-3 sm:grid-cols-10">
+          <div className="space-y-2">
             {editAnswers.map((q, i) => (
-              <div key={q.questionNumber} className="text-center">
-                <label className="mb-1 block text-xs text-black">{q.questionNumber}</label>
-                <select value={q.correctAnswer} onChange={(e) => updateEditAnswer(i, parseInt(e.target.value))}
-                  className="w-full rounded border px-1 py-1 text-center text-sm text-black focus:border-blue-500 focus:outline-none">
-                  {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
+              <div key={q.questionNumber} className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2">
+                <span className="w-10 shrink-0 text-xs font-bold text-black">{q.questionNumber}번</span>
+                <select value={q.questionType} onChange={(e) => updateEditQuestionType(i, e.target.value)}
+                  className="shrink-0 rounded border px-1.5 py-1 text-xs text-black focus:border-blue-500 focus:outline-none">
+                  <option value="choice">객관식</option>
+                  <option value="multiple">복수정답</option>
+                  <option value="subjective">주관식</option>
                 </select>
+                {q.questionType === "choice" ? (
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button key={n} onClick={() => updateEditAnswer(i, String(n))}
+                        className={`h-8 w-8 rounded text-xs font-bold transition ${
+                          q.correctAnswer === String(n) ? "bg-blue-600 text-white" : "bg-gray-100 text-black hover:bg-gray-200"
+                        }`}>{n}</button>
+                    ))}
+                  </div>
+                ) : q.questionType === "multiple" ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((n) => {
+                        const selected = q.correctAnswer.split(",").map((x) => x.trim()).includes(String(n));
+                        return (
+                          <button key={n} onClick={() => {
+                            const current = q.correctAnswer.split(",").map((x) => x.trim()).filter(Boolean);
+                            const strN = String(n);
+                            const next = selected ? current.filter((x) => x !== strN) : [...current, strN].sort();
+                            updateEditAnswer(i, next.join(","));
+                          }} className={`h-8 w-8 rounded text-xs font-bold transition ${
+                            selected ? "bg-indigo-600 text-white" : "bg-gray-100 text-black hover:bg-gray-200"
+                          }`}>{n}</button>
+                        );
+                      })}
+                    </div>
+                    <span className="text-xs text-black">({q.correctAnswer || "선택"})</span>
+                  </div>
+                ) : (
+                  <input type="text" value={q.correctAnswer} onChange={(e) => updateEditAnswer(i, e.target.value)}
+                    placeholder="정답 입력" className="flex-1 rounded border px-2 py-1 text-sm text-black focus:border-blue-500 focus:outline-none" />
+                )}
+                <span className="ml-auto shrink-0 text-xs text-black">{q.points}점</span>
               </div>
             ))}
           </div>
@@ -565,7 +627,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
             </div>
             <input type="file" accept=".csv" onChange={handleEditCSVUpload}
               className="block w-full text-xs text-black file:mr-2 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-blue-600 hover:file:bg-blue-100" />
-            <p className="mt-1 text-xs text-black">양식: 문항번호,정답,배점 (예: 1,3,2)</p>
+            <p className="mt-1 text-xs text-black">양식: 문항번호,정답,배점,유형 (예: 1,3,2,객관식)</p>
           </div>
           <div className="mt-4 flex gap-2">
             <button onClick={handleSaveEdit} disabled={saving}
@@ -577,13 +639,18 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
           {submissions.length > 0 && <p className="mt-2 text-xs text-amber-600">저장 시 기존 제출물 {submissions.length}건이 자동으로 재채점됩니다.</p>}
         </div>
       ) : (
-        <div className="mb-8 grid grid-cols-10 gap-2 rounded-lg bg-white p-4 shadow-sm">
-          {assignment.questions.map((q) => (
-            <div key={q.questionNumber} className="text-center">
-              <span className="block text-xs text-black">{q.questionNumber}</span>
-              <span className="text-sm font-bold text-blue-600">{q.correctAnswer}</span>
-            </div>
-          ))}
+        <div className="mb-8 rounded-lg bg-white p-4 shadow-sm">
+          <div className="grid grid-cols-5 gap-2 sm:grid-cols-10">
+            {assignment.questions.map((q) => (
+              <div key={q.questionNumber} className="text-center">
+                <span className="block text-xs text-black">{q.questionNumber}</span>
+                <span className="text-sm font-bold text-blue-600">{q.correctAnswer}</span>
+                {q.questionType && q.questionType !== "choice" && (
+                  <span className="block text-[10px] text-black">{q.questionType === "multiple" ? "복수" : "주관"}</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

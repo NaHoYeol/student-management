@@ -101,7 +101,8 @@ model Question {
   id             String @id @default(cuid())
   assignmentId   String
   questionNumber Int
-  correctAnswer  Int
+  correctAnswer  String
+  questionType   String @default("choice") // "choice" | "multiple" | "subjective"
   points         Int    @default(1)
 
   assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
@@ -146,7 +147,7 @@ model SubmissionAnswer {
   id             String  @id @default(cuid())
   submissionId   String
   questionNumber Int
-  studentAnswer  Int
+  studentAnswer  String
   isCorrect      Boolean @default(false)
 
   submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)

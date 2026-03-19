@@ -52,6 +52,7 @@ export async function GET(
   const questionInputs = assignment.questions.map((q) => ({
     questionNumber: q.questionNumber,
     correctAnswer: q.correctAnswer,
+    questionType: q.questionType,
   }));
 
   const analysis = computeAnalysis(
@@ -60,7 +61,7 @@ export async function GET(
       score: s.score ?? 0,
       answers: s.answers.map((a) => ({
         questionNumber: a.questionNumber,
-        studentAnswer: a.studentAnswer,
+        studentAnswer: String(a.studentAnswer),
         isCorrect: a.isCorrect,
       })),
     })),

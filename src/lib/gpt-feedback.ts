@@ -10,20 +10,22 @@ async function getApiKey(): Promise<string | null> {
   }
 }
 
-// 난이도 등급 (정답률 기준)
-// 80%+ = 상(쉬움), 60~80% = 중상, 40~60% = 중, 20~40% = 중하, 20% 미만 = 하(어려움)
+// 난이도 등급 (오답률 기준)
+// 오답률 = 100 - 정답률
+// 오답률 0~15% = 하(쉬움), 15~30% = 중하, 30~45% = 중, 45~60% = 중상, 60%+ = 상(어려움)
 export function getDifficultyLabel(correctRate: number): string {
-  if (correctRate >= 80) return "상";
-  if (correctRate >= 60) return "중상";
-  if (correctRate >= 40) return "중";
-  if (correctRate >= 20) return "중하";
+  const errorRate = 100 - correctRate;
+  if (errorRate >= 60) return "상";
+  if (errorRate >= 45) return "중상";
+  if (errorRate >= 30) return "중";
+  if (errorRate >= 15) return "중하";
   return "하";
 }
 
 interface QuestionAnalysis {
   questionNumber: number;
-  studentAnswer: number;
-  correctAnswer: number;
+  studentAnswer: string;
+  correctAnswer: string;
   correctRate: number;
 }
 
@@ -67,57 +69,82 @@ export async function generateFeedback(input: FeedbackInput): Promise<string> {
 
 중요: 이 분석은 오직 이번 시험 결과에 대한 것이다. 미래 학습 계획, 액션 플랜, "이렇게 공부하세요" 같은 조언은 하지 마. 철저히 현재 데이터 분석에만 집중해.
 
-[문항 난이도 기준]
-정답률 80% 이상 = 상 (쉬운 문제)
-정답률 60~80% = 중상
-정답률 40~60% = 중
-정답률 20~40% = 중하
-정답률 20% 미만 = 하 (어려운 문제)
+[문항 난이도 기준 - 오답률 기준]
+오답률 60% 이상 (정답률 40% 미만) = 상 (어려운 문제)
+오답률 45~60% (정답률 40~55%) = 중상
+오답률 30~45% (정답률 55~70%) = 중
+오답률 15~30% (정답률 70~85%) = 중하
+오답률 0~15% (정답률 85% 이상) = 하 (쉬운 문제)
+
+[핵심 분석 원칙]
+단순히 수치를 나열하지 마. 수치가 내포하는 의미를 깊이 파고들어(Deep Dive) 학생의 '인지적 특징'과 '문제 해결 알고리즘'을 분석하는 형식으로 서술해.
+- 점수/백분위 → 이 수치가 학생의 지식 체계 구축 수준에 대해 무엇을 말하는지 해석
+- 킬러 문항 정답 → 단순히 "맞혔다"가 아니라, 어떤 인지 능력(비판적 사고력, 구조적 독해력, 복합 추론력 등)이 작동한 결과인지 분석
+- 오답 선택지 패턴 → 시간 부족에 의한 것인지, 인지적 편향(Cognitive Bias)에 의한 것인지 대조하여 판별
+- 오답 문항의 공통 주제/유형 → 특정 도메인(영역)에서 인지 부하(Cognitive Load)가 증가했는지 논리적으로 추론
+- 매력적 오답(Attractive Distractor)에 낚인 패턴 → 출제자가 의도적으로 설계한 오답 논리 구조에 설득당한 것인지 분석
 
 [사고 과정 - 내부적으로 수행하되 출력하지 마]
 Step 1: 오답 목록에서 한 번호로 몰아찍은 흔적이 있는지 체크.
   - 특정 선택지가 전체 오답의 50% 이상 → 찍기 패턴
   - 연속 5문항 이상 같은 답 → 시간 부족/포기
+  - 위 패턴이 없다면 → 각 오답은 의식적 판단의 결과이므로, 인지적 편향(Cognitive Bias) 분석으로 전환
 Step 2: 틀린 문항들을 난이도 기준(상/중상/중/중하/하)으로 분류.
-  - 난이도 '상' 문제를 틀렸으면 → 기본기 누수
-  - 난이도 '하' 문제만 틀렸으면 → 상위권 벽
-Step 3: "잘 맞힌 어려운 문항" 데이터에서 이 학생의 강점을 파악. 실제 문제 내용을 읽고 어떤 능력이 있는지 분석.
-Step 4: "틀린 문항" 데이터에서 실제 문제 내용을 읽고, 왜 틀렸을지 추론. 어떤 유형의 함정에 빠졌는지 분석.
+  - 난이도 '하'(쉬운) 문제를 틀렸으면 → 기본기 누수 또는 집중력 저하 구간
+  - 난이도 '상'(어려운) 문제만 틀렸으면 → 상위권 벽. 심층 추론 단계에서 발생하는 병목 파악
+  - 난이도 '중/중상' 문제를 틀렸으면 → 변별력 구간에서의 판단 흔들림. 매력적 오답에 설득당했을 가능성 분석
+Step 3: "잘 맞힌 어려운 문항" 데이터에서 이 학생의 강점을 파악.
+  - 실제 문제 내용을 읽고, 어떤 인지 능력이 작동한 결과인지 구체적으로 분석
+  - 예: "텍스트 이면의 출제 의도를 파악하는 비판적 사고력", "복합적 단서를 재구성하는 구조적 독해력", "정보 간 논리적 연결 고리를 찾는 추론력"
+Step 4: "틀린 문항" 데이터에서 실제 문제 내용을 읽고, 왜 틀렸을지 추론.
+  - 학생이 선택한 오답 선택지의 특성 분석: 지엽적 키워드에 매몰되었는지, 부분적으로 맞는 정보에 끌렸는지
+  - 오답이 발생한 문항들의 공통된 주제/유형이 있는지 확인 → 특정 도메인에서 인지 부하가 증가한 것인지 판단
 Step 5: 오답 문항 번호를 순서대로 나열, 구간별(초반/중반/후반) 분포와 유형별 편중 확인.
-Step 6: 위에서 놓친 패턴이 없는지 한 번 더 확인.
-  - 매력적 오답에 자주 낚이는지, 특정 선지 위치에서 약한지, 특정 지문 유형에서 무너지는지 등.
+  - 후반부 집중 오답 → 시간/집중력 관리 이슈
+  - 특정 유형 집중 오답 → 해당 영역의 개념 연결 구조에서 혼란
+Step 6: 오답 선택지 분포를 재검토.
+  - 동일 선택지 반복 선택 → 특정 위치 선호 편향 또는 소거법 적용 실패
+  - 매력적 오답에 자주 낚이는지, 특정 선지 위치에서 약한지, 특정 지문 유형에서 무너지는지 등
+Step 7: 학생의 등급대에 맞는 해석 프레임 설정.
+  - 1~2등급: "안정적 구조 위의 미세 균열" 관점. 높은 성취 속 소수 오답의 의미를 깊이 분석
+  - 3~4등급: "변별력 구간에서의 판단력 흔들림" 관점. 중상~중 난이도에서의 득점/실점 패턴 분석
+  - 5~6등급: "기본 구조의 완성도" 관점. 쉬운 문항 정답률과 중간 난이도 도전 패턴 분석
+  - 7~9등급: "핵심 개념 연결의 현재 상태" 관점. 어떤 영역에서 개념 연결이 이루어지고 있는지 분석
 
 [출력 형식]
-아래 목차를 지키되, 각 항목 안에서는 데이터가 말해주는 대로 자유롭게 써.
+아래 목차를 지키되, 각 항목 안에서는 데이터가 말해주는 대로 자유롭게 써. 각 섹션에서 수치를 단순 나열하지 말고, 수치가 의미하는 바를 해석하여 서술해.
 
-### 1. 성적 요약
-(3~4문장. 점수, 등급, 백분위 등 팩트만 담백하게 정리. 이번 시험의 전체적인 양상을 한 문장으로 요약.)
+### 1. 성적 지표 총평 및 위치 분석
+(4~5문장. 점수, 등급, 백분위를 단순 나열이 아닌, 이 수치들이 학생의 전반적 지식 체계 구축 수준에 대해 무엇을 말하는지 해석하여 서술. 해당 등급대에서의 위치가 갖는 의미를 한 문장으로 요약. 예: 높은 정답률이 단순 암기가 아닌 정교한 지식 체계를 시사하는 것인지, 또는 기본 개념 연결이 불안정한 것인지 등.)
 
-### 2. 잘 맞힌 문항 분석
-(맞은 문항 중 난이도가 높았던 문제를 구체적으로 짚어줘. 실제 문제 내용을 참고해서 "이 유형을 맞힌 건 ~한 판단력이 작동했다는 의미입니다" 식으로 건조하지만 인정해주는 톤. 데이터가 없으면 짧게 전반적 강점만 언급.)
+### 2. 변별력 문항 반응 분석
+(잘 맞힌 어려운 문항을 중심으로 분석. 단순히 "맞혔다"를 넘어, 해당 문항을 정답 처리하기 위해 어떤 수준의 인지 능력이 요구되었는지 서술. 실제 문제 내용이 있으면 "이 문항은 ~를 요구하는데, 이를 성공적으로 수행했다는 것은 ~역량이 작동했음을 의미합니다" 식으로 분석. 전체 정답률 대비 이 학생의 정답이 갖는 의미도 언급. 데이터가 없으면 전반적 강점 패턴만 짧게 언급.)
 
-### 3. 데이터 분석
-(최소 3문단. 아래 3가지를 각각 문단으로 나누어 구체적 문항 번호와 난이도 등급을 근거로 서술)
-- **시간 관리 & 응시 태도**: 찍기 패턴, 연속 오답, 시간 부족 징후 등. 없으면 "특이사항 없음"으로 짧게.
-- **난이도 대비 정답률**: 어느 난이도 구간에서 점수를 잃었는지 팩트 체크. 틀린 문제의 실제 내용을 참고해서 "이 문제는 ~유형인데, ~부분에서 판단이 갈렸을 것으로 보입니다" 식으로 분석.
-- **추가 발견 패턴**: 위 두 가지로 설명되지 않는 것. 네 분석력을 자유롭게 발휘해. 정해진 틀 없이 이 학생의 데이터에서 가장 의미 있는 인사이트를 찾아줘.`;
+### 3. 오답 데이터 기반 인지 패턴 진단
+(최소 3문단. 아래 3가지를 각각 소제목(**볼드**)으로 구분하여 구체적 문항 번호와 난이도 등급을 근거로 서술)
+
+- **응시 태도 및 시간 관리 분석**: 찍기 패턴, 연속 오답, 후반부 집중 오답 등의 외적 요인이 있는지 먼저 확인. 외적 요인이 배제되면, "오답이 의식적 판단의 결과"임을 명시하고 인지적 분석으로 전환.
+
+- **매력적 오답에 대한 인지적 편향 분석**: 오답 선택지 분포를 분석하여, 특정 선택지에 편중되는 패턴이 있는지 확인. 패턴이 있으면 "지문 내 특정 키워드에 매몰되는 경향" 또는 "출제자가 설계한 오답 논리 구조에 설득당하는 경향" 등으로 해석. 실제 문제 내용이 있으면 해당 문제에서 왜 그 오답이 매력적이었는지까지 추론.
+
+- **난이도·주제 영역별 인지 부하 분석**: 틀린 문항들의 난이도 분포와 주제/유형의 공통점을 분석. 특정 난이도 구간이나 특정 주제 영역(예: 낯선 배경지식이 결합된 문항)에서 인지 부하가 증가하여 판단력이 저하되는 패턴이 있는지 논리적으로 추론. "텍스트 자체의 난이도보다는 익숙하지 않은 개념이 등장했을 때 개념 간 관계 파악에 혼란을 겪는 것" 등 구체적 메커니즘 수준으로 분석.`;
 
     // 틀린 문항 데이터 (난이도 등급 포함)
     const wrongQuestionsText = input.wrongQuestions
       .map((q) => `${q.questionNumber}번: 내 답 ${q.studentAnswer} / 정답 ${q.correctAnswer} / 정답률 ${q.correctRate.toFixed(0)}% [난이도: ${getDifficultyLabel(q.correctRate)}]`)
       .join("\n");
 
-    // 난이도별 분류 (새 기준)
+    // 난이도별 분류 (오답률 기준: 상=어려움, 하=쉬움)
     const wrongByDiff = {
-      상: input.wrongQuestions.filter((q) => q.correctRate >= 80),
-      중상: input.wrongQuestions.filter((q) => q.correctRate >= 60 && q.correctRate < 80),
-      중: input.wrongQuestions.filter((q) => q.correctRate >= 40 && q.correctRate < 60),
-      중하: input.wrongQuestions.filter((q) => q.correctRate >= 20 && q.correctRate < 40),
-      하: input.wrongQuestions.filter((q) => q.correctRate < 20),
+      상: input.wrongQuestions.filter((q) => q.correctRate < 40),          // 오답률 60%+
+      중상: input.wrongQuestions.filter((q) => q.correctRate >= 40 && q.correctRate < 55),  // 오답률 45~60%
+      중: input.wrongQuestions.filter((q) => q.correctRate >= 55 && q.correctRate < 70),    // 오답률 30~45%
+      중하: input.wrongQuestions.filter((q) => q.correctRate >= 70 && q.correctRate < 85),  // 오답률 15~30%
+      하: input.wrongQuestions.filter((q) => q.correctRate >= 85),          // 오답률 0~15%
     };
 
     // 찍기 패턴
-    const wrongChoiceCounts = new Map<number, number>();
+    const wrongChoiceCounts = new Map<string, number>();
     for (const q of input.wrongQuestions) {
       wrongChoiceCounts.set(q.studentAnswer, (wrongChoiceCounts.get(q.studentAnswer) ?? 0) + 1);
     }
@@ -143,12 +170,12 @@ Step 6: 위에서 놓친 패턴이 없는지 한 번 더 확인.
 
 ${wrongQuestionsText || "없음 (전문항 정답)"}
 
-[난이도별 오답 분류]
-- 상(정답률 80%+): ${wrongByDiff.상.length}개${wrongByDiff.상.length > 0 ? ` → ${wrongByDiff.상.map((q) => `${q.questionNumber}번(${q.correctRate}%)`).join(", ")}` : ""}
-- 중상(60~80%): ${wrongByDiff.중상.length}개${wrongByDiff.중상.length > 0 ? ` → ${wrongByDiff.중상.map((q) => `${q.questionNumber}번(${q.correctRate}%)`).join(", ")}` : ""}
-- 중(40~60%): ${wrongByDiff.중.length}개${wrongByDiff.중.length > 0 ? ` → ${wrongByDiff.중.map((q) => `${q.questionNumber}번(${q.correctRate}%)`).join(", ")}` : ""}
-- 중하(20~40%): ${wrongByDiff.중하.length}개${wrongByDiff.중하.length > 0 ? ` → ${wrongByDiff.중하.map((q) => `${q.questionNumber}번(${q.correctRate}%)`).join(", ")}` : ""}
-- 하(20% 미만): ${wrongByDiff.하.length}개${wrongByDiff.하.length > 0 ? ` → ${wrongByDiff.하.map((q) => `${q.questionNumber}번(${q.correctRate}%)`).join(", ")}` : ""}`;
+[난이도별 오답 분류 (오답률 기준)]
+- 상-어려움(오답률 60%+): ${wrongByDiff.상.length}개${wrongByDiff.상.length > 0 ? ` → ${wrongByDiff.상.map((q) => `${q.questionNumber}번(정답률${q.correctRate}%)`).join(", ")}` : ""}
+- 중상(오답률 45~60%): ${wrongByDiff.중상.length}개${wrongByDiff.중상.length > 0 ? ` → ${wrongByDiff.중상.map((q) => `${q.questionNumber}번(정답률${q.correctRate}%)`).join(", ")}` : ""}
+- 중(오답률 30~45%): ${wrongByDiff.중.length}개${wrongByDiff.중.length > 0 ? ` → ${wrongByDiff.중.map((q) => `${q.questionNumber}번(정답률${q.correctRate}%)`).join(", ")}` : ""}
+- 중하(오답률 15~30%): ${wrongByDiff.중하.length}개${wrongByDiff.중하.length > 0 ? ` → ${wrongByDiff.중하.map((q) => `${q.questionNumber}번(정답률${q.correctRate}%)`).join(", ")}` : ""}
+- 하-쉬움(오답률 0~15%): ${wrongByDiff.하.length}개${wrongByDiff.하.length > 0 ? ` → ${wrongByDiff.하.map((q) => `${q.questionNumber}번(정답률${q.correctRate}%)`).join(", ")}` : ""}`;
 
     // 잘 맞힌 어려운 문항
     if (input.impressiveCorrects && input.impressiveCorrects.length > 0) {
@@ -181,7 +208,7 @@ ${wrongQuestionsText || "없음 (전문항 정답)"}
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      max_tokens: 4096,
+      max_tokens: 6000,
       temperature: 0.7,
     });
 
@@ -208,9 +235,9 @@ function generateFallbackFeedback(input: FeedbackInput): string {
   }
 
   if (wrongQuestions.length > 0) {
-    const easyWrong = wrongQuestions.filter((q) => q.correctRate >= 80);
+    const easyWrong = wrongQuestions.filter((q) => q.correctRate >= 85); // 오답률 15% 미만 = 쉬운 문제
     if (easyWrong.length > 0) {
-      lines.push(`난이도 '상' 문항(${easyWrong.map((q) => q.questionNumber + "번").join(", ")})에서 실점한 점이 확인됩니다.`);
+      lines.push(`난이도 '하'(쉬운) 문항(${easyWrong.map((q) => q.questionNumber + "번").join(", ")})에서 실점한 점이 확인됩니다.`);
     }
   }
 

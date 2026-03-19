@@ -38,7 +38,7 @@ export async function PUT(
 
   const body = await req.json();
   const { answers } = body as {
-    answers: { questionNumber: number; studentAnswer: number }[];
+    answers: { questionNumber: number; studentAnswer: string }[];
   };
 
   // Get questions for re-grading

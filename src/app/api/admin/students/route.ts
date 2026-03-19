@@ -9,7 +9,10 @@ export async function GET() {
   }
 
   const students = await prisma.user.findMany({
-    where: { role: "STUDENT" },
+    where: {
+      role: "STUDENT",
+      NOT: { email: { endsWith: "@internal" } },
+    },
     select: {
       id: true,
       name: true,
@@ -18,8 +21,9 @@ export async function GET() {
       grade: true,
       classDay: true,
       classTime: true,
-      _count: { select: { submissions: true } },
+      _count: { select: { submissions: { where: { isAgent: false } } } },
       submissions: {
+        where: { isAgent: false },
         select: { score: true, totalPoints: true },
       },
     },

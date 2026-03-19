@@ -13,15 +13,16 @@ const GRADE_DISTRIBUTION: { grade: number; count: number; accuracyRange: [number
   { grade: 9, count: 4, accuracyRange: [0.03, 0.13] },
 ];
 
-interface QuestionInfo {
+export interface QuestionInfo {
   questionNumber: number;
-  correctAnswer: number;
+  correctAnswer: string;
+  questionType?: string; // "choice" | "multiple" | "subjective"
   points: number;
 }
 
 interface AgentAnswer {
   questionNumber: number;
-  studentAnswer: number;
+  studentAnswer: string;
 }
 
 export interface QuestionDifficulty {
@@ -35,6 +36,48 @@ function randomInRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
+/** 객관식 단일 정답에서 랜덤 오답 생성 */
+function randomWrongChoice(correctAnswer: string): string {
+  const correct = parseInt(correctAnswer);
+  if (isNaN(correct) || correct < 1 || correct > 5) {
+    // 주관식: 틀린 답은 빈 문자열이 아니라 오답 표시
+    return "__wrong__";
+  }
+  const choices = [1, 2, 3, 4, 5].filter((c) => c !== correct);
+  return String(choices[Math.floor(Math.random() * choices.length)]);
+}
+
+/** 복수정답에서 랜덤 오답 조합 생성 */
+function randomWrongMultiple(correctAnswer: string): string {
+  const correctSet = correctAnswer.split(",").map((x) => x.trim()).filter(Boolean);
+  const correctNums = correctSet.map(Number).filter((n) => !isNaN(n));
+  const count = correctNums.length;
+
+  // 같은 개수로 다른 조합 선택
+  const allChoices = [1, 2, 3, 4, 5];
+  const wrongCombos: number[][] = [];
+
+  // 간단한 조합 생성
+  function combine(start: number, combo: number[]) {
+    if (combo.length === count) {
+      const sorted = [...combo].sort((a, b) => a - b);
+      const key = sorted.join(",");
+      if (key !== correctNums.sort((a, b) => a - b).join(",")) {
+        wrongCombos.push(sorted);
+      }
+      return;
+    }
+    for (let i = start; i < allChoices.length; i++) {
+      combine(i + 1, [...combo, allChoices[i]]);
+    }
+  }
+  combine(0, []);
+
+  if (wrongCombos.length === 0) return correctAnswer;
+  const chosen = wrongCombos[Math.floor(Math.random() * wrongCombos.length)];
+  return chosen.join(",");
+}
+
 function generateAgentAnswersSimple(
   questions: QuestionInfo[],
   accuracyRate: number
@@ -44,25 +87,31 @@ function generateAgentAnswersSimple(
     if (isCorrect) {
       return { questionNumber: q.questionNumber, studentAnswer: q.correctAnswer };
     }
-    const choices = [1, 2, 3, 4, 5].filter((c) => c !== q.correctAnswer);
-    const wrong = choices[Math.floor(Math.random() * choices.length)];
-    return { questionNumber: q.questionNumber, studentAnswer: wrong };
+
+    const type = q.questionType || "choice";
+    if (type === "multiple") {
+      return { questionNumber: q.questionNumber, studentAnswer: randomWrongMultiple(q.correctAnswer) };
+    }
+    if (type === "subjective") {
+      return { questionNumber: q.questionNumber, studentAnswer: "__wrong__" };
+    }
+    return { questionNumber: q.questionNumber, studentAnswer: randomWrongChoice(q.correctAnswer) };
   });
 }
 
 // 난이도별 목표 정답률 (difficulty 1~5)
-// 실제 수능 데이터 기반: 쉬운 문항 90%+, 킬러 문항 10~20%
+// 쉬운 문항은 거의 모든 학생이 맞히고, 킬러 문항은 대부분 틀리도록 극단적 설정
 const DIFFICULTY_TARGETS: Record<number, number> = {
-  1: 0.93,  // 매우 쉬움 - 대부분 맞힘
-  2: 0.78,  // 쉬움
-  3: 0.55,  // 보통
-  4: 0.30,  // 어려움
-  5: 0.12,  // 매우 어려움 (킬러 문항)
+  1: 0.96,  // 매우 쉬움 - 거의 모두 맞힘 (오답률 4%)
+  2: 0.85,  // 쉬움 (오답률 15%)
+  3: 0.55,  // 보통 (오답률 45%)
+  4: 0.22,  // 어려움 (오답률 78%)
+  5: 0.07,  // 매우 어려움 - 킬러 문항 (오답률 93%)
 };
 
 // 난이도가 정답률에 미치는 영향 비중 (0~1)
-// 0.6 = 난이도가 60%, 에이전트 실력이 40% 영향
-const DIFFICULTY_BLEND_WEIGHT = 0.6;
+// 0.75 = 난이도가 75%, 에이전트 실력이 25% 영향 → 문항 난이도가 지배적
+const DIFFICULTY_BLEND_WEIGHT = 0.75;
 
 function generateAgentAnswersSmart(
   questions: QuestionInfo[],
@@ -73,6 +122,7 @@ function generateAgentAnswersSmart(
 
   return questions.map((q) => {
     const diff = diffMap.get(q.questionNumber);
+    const type = q.questionType || "choice";
 
     let adjustedAccuracy = accuracyRate;
     if (diff) {
@@ -91,21 +141,27 @@ function generateAgentAnswersSmart(
       return { questionNumber: q.questionNumber, studentAnswer: q.correctAnswer };
     }
 
-    // Use common wrong answers from difficulty analysis
+    // 주관식/복수정답 처리
+    if (type === "subjective") {
+      return { questionNumber: q.questionNumber, studentAnswer: "__wrong__" };
+    }
+    if (type === "multiple") {
+      return { questionNumber: q.questionNumber, studentAnswer: randomWrongMultiple(q.correctAnswer) };
+    }
+
+    // Use common wrong answers from difficulty analysis (객관식)
     if (diff) {
       const r = Math.random();
-      if (r < 0.5 && diff.commonWrongAnswer !== q.correctAnswer) {
-        return { questionNumber: q.questionNumber, studentAnswer: diff.commonWrongAnswer };
+      if (r < 0.5 && String(diff.commonWrongAnswer) !== q.correctAnswer) {
+        return { questionNumber: q.questionNumber, studentAnswer: String(diff.commonWrongAnswer) };
       }
-      if (r < 0.75 && diff.secondWrongAnswer !== q.correctAnswer) {
-        return { questionNumber: q.questionNumber, studentAnswer: diff.secondWrongAnswer };
+      if (r < 0.75 && String(diff.secondWrongAnswer) !== q.correctAnswer) {
+        return { questionNumber: q.questionNumber, studentAnswer: String(diff.secondWrongAnswer) };
       }
     }
 
     // Fallback: random wrong answer
-    const choices = [1, 2, 3, 4, 5].filter((c) => c !== q.correctAnswer);
-    const wrong = choices[Math.floor(Math.random() * choices.length)];
-    return { questionNumber: q.questionNumber, studentAnswer: wrong };
+    return { questionNumber: q.questionNumber, studentAnswer: randomWrongChoice(q.correctAnswer) };
   });
 }
 
@@ -114,7 +170,7 @@ export interface AgentSubmissionData {
   answers: AgentAnswer[];
   score: number;
   totalPoints: number;
-  details: { questionNumber: number; studentAnswer: number; isCorrect: boolean }[];
+  details: { questionNumber: number; studentAnswer: string; isCorrect: boolean }[];
 }
 
 export function generateAllAgentSubmissions(

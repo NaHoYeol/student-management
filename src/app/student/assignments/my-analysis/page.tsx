@@ -234,19 +234,24 @@ function MyAnalysisContent() {
                   <td className="px-4 py-2 text-green-600 font-medium">{q.correctAnswer}</td>
                   <td className="px-4 py-2 text-black">{q.correctRate}%</td>
                   <td className="px-4 py-2">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                      q.correctRate >= 80
-                        ? "bg-green-100 text-green-700"
-                        : q.correctRate >= 60
-                        ? "bg-blue-100 text-blue-700"
-                        : q.correctRate >= 40
-                        ? "bg-yellow-100 text-yellow-700"
-                        : q.correctRate >= 20
+                    {(() => {
+                      const errorRate = 100 - q.correctRate;
+                      const label = errorRate >= 60 ? "상" : errorRate >= 45 ? "중상" : errorRate >= 30 ? "중" : errorRate >= 15 ? "중하" : "하";
+                      const color = errorRate >= 60
+                        ? "bg-red-100 text-red-700"
+                        : errorRate >= 45
                         ? "bg-orange-100 text-orange-700"
-                        : "bg-red-100 text-red-700"
-                    }`}>
-                      {q.correctRate >= 80 ? "상" : q.correctRate >= 60 ? "중상" : q.correctRate >= 40 ? "중" : q.correctRate >= 20 ? "중하" : "하"}
-                    </span>
+                        : errorRate >= 30
+                        ? "bg-yellow-100 text-yellow-700"
+                        : errorRate >= 15
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-green-100 text-green-700";
+                      return (
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
+                          {label}
+                        </span>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))}

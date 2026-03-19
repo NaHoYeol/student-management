@@ -3,11 +3,17 @@
 import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
+interface QuestionDetail {
+  questionNumber: number;
+  points: number;
+  questionType?: string; // "choice" | "multiple" | "subjective"
+}
+
 interface AssignmentDetail {
   id: string;
   title: string;
   totalQuestions: number;
-  questions: { questionNumber: number; points: number }[];
+  questions: QuestionDetail[];
 }
 
 interface GradingResult {
@@ -15,7 +21,7 @@ interface GradingResult {
   totalPoints: number;
   answers: {
     questionNumber: number;
-    studentAnswer: number;
+    studentAnswer: string;
     isCorrect: boolean;
   }[];
 }
@@ -28,7 +34,7 @@ function SubmitAnswerContent() {
   const isEditMode = searchParams.get("edit") === "true";
 
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
-  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [answers, setAnswers] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<GradingResult | null>(null);
   const [error, setError] = useState("");
@@ -55,7 +61,7 @@ function SubmitAnswerContent() {
         const sub = submissionsData[0] as {
           id: string;
           resubmitApproved?: boolean;
-          answers: { questionNumber: number; studentAnswer: number }[];
+          answers: { questionNumber: number; studentAnswer: string }[];
         };
 
         if (!sub.resubmitApproved) {
@@ -65,9 +71,9 @@ function SubmitAnswerContent() {
         }
 
         setSubmissionId(sub.id);
-        const existingAnswers: Record<number, number> = {};
+        const existingAnswers: Record<number, string> = {};
         sub.answers.forEach((a) => {
-          existingAnswers[a.questionNumber] = a.studentAnswer;
+          existingAnswers[a.questionNumber] = String(a.studentAnswer);
         });
         setAnswers(existingAnswers);
       }
@@ -76,13 +82,25 @@ function SubmitAnswerContent() {
     });
   }, [assignmentId, isEditMode]);
 
-  function updateAnswer(questionNumber: number, value: number) {
-    if (value >= 1 && value <= 5) {
-      setAnswers((prev) => ({ ...prev, [questionNumber]: value }));
-    }
+  function updateChoiceAnswer(questionNumber: number, value: string) {
+    setAnswers((prev) => ({ ...prev, [questionNumber]: value }));
   }
 
-  function handleTypingInput(questionNumber: number, raw: string) {
+  function toggleMultipleAnswer(questionNumber: number, value: string) {
+    setAnswers((prev) => {
+      const current = (prev[questionNumber] || "").split(",").map((x) => x.trim()).filter(Boolean);
+      const next = current.includes(value)
+        ? current.filter((x) => x !== value)
+        : [...current, value].sort();
+      return { ...prev, [questionNumber]: next.join(",") };
+    });
+  }
+
+  function handleTypingInput(questionNumber: number, raw: string, questionType?: string) {
+    if (questionType === "subjective") {
+      setAnswers((prev) => ({ ...prev, [questionNumber]: raw }));
+      return;
+    }
     const val = parseInt(raw);
     if (raw === "") {
       setAnswers((prev) => {
@@ -91,7 +109,7 @@ function SubmitAnswerContent() {
         return next;
       });
     } else if (val >= 1 && val <= 5) {
-      setAnswers((prev) => ({ ...prev, [questionNumber]: val }));
+      setAnswers((prev) => ({ ...prev, [questionNumber]: String(val) }));
     }
   }
 
@@ -205,6 +223,9 @@ function SubmitAnswerContent() {
     );
   }
 
+  // 문항 유형별 분류
+  const hasNonChoice = assignment.questions.some((q) => q.questionType && q.questionType !== "choice");
+
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-2 text-xl font-bold sm:text-2xl">
@@ -212,32 +233,34 @@ function SubmitAnswerContent() {
       </h1>
       <p className="mb-4 text-sm text-black">
         {isEditMode ? `${assignment.title} — ` : ""}
-        {assignment.totalQuestions}문항 | 각 문항의 답을 선택해 주세요 (1~5)
+        {assignment.totalQuestions}문항 | 각 문항의 답을 입력해 주세요
       </p>
 
-      {/* 입력 모드 전환 */}
-      <div className="mb-4 flex gap-2">
-        <button
-          onClick={() => setInputMode("button")}
-          className={`rounded-lg px-4 py-2 text-sm font-medium ${
-            inputMode === "button"
-              ? "bg-blue-600 text-white"
-              : "border border-gray-300 text-black hover:bg-gray-50"
-          }`}
-        >
-          버튼 선택
-        </button>
-        <button
-          onClick={() => setInputMode("typing")}
-          className={`rounded-lg px-4 py-2 text-sm font-medium ${
-            inputMode === "typing"
-              ? "bg-blue-600 text-white"
-              : "border border-gray-300 text-black hover:bg-gray-50"
-          }`}
-        >
-          직접 입력
-        </button>
-      </div>
+      {/* 입력 모드 전환 (객관식만 있을 때) */}
+      {!hasNonChoice && (
+        <div className="mb-4 flex gap-2">
+          <button
+            onClick={() => setInputMode("button")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${
+              inputMode === "button"
+                ? "bg-blue-600 text-white"
+                : "border border-gray-300 text-black hover:bg-gray-50"
+            }`}
+          >
+            버튼 선택
+          </button>
+          <button
+            onClick={() => setInputMode("typing")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${
+              inputMode === "typing"
+                ? "bg-blue-600 text-white"
+                : "border border-gray-300 text-black hover:bg-gray-50"
+            }`}
+          >
+            직접 입력
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded bg-red-50 px-4 py-2 text-sm text-red-600">
@@ -246,8 +269,73 @@ function SubmitAnswerContent() {
       )}
 
       <div className="rounded-lg bg-white p-4 shadow-sm sm:p-6">
-        {inputMode === "button" ? (
-          /* 버튼 모드 - 큰 버튼 */
+        {hasNonChoice ? (
+          /* 혼합 유형 모드 */
+          <div className="space-y-3">
+            {assignment.questions.map((q) => {
+              const type = q.questionType || "choice";
+              return (
+                <div key={q.questionNumber} className="rounded-lg border border-gray-200 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-sm font-semibold text-black">{q.questionNumber}번</span>
+                    {type !== "choice" && (
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        type === "multiple" ? "bg-indigo-100 text-indigo-700" : "bg-amber-100 text-amber-700"
+                      }`}>
+                        {type === "multiple" ? "복수정답" : "주관식"}
+                      </span>
+                    )}
+                  </div>
+                  {type === "choice" ? (
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => updateChoiceAnswer(q.questionNumber, String(n))}
+                          className={`h-10 w-10 rounded-lg text-sm font-bold transition active:scale-95 ${
+                            answers[q.questionNumber] === String(n)
+                              ? "bg-blue-600 text-white shadow-md"
+                              : "bg-gray-100 text-black hover:bg-gray-200 active:bg-gray-300"
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  ) : type === "multiple" ? (
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3, 4, 5].map((n) => {
+                        const selected = (answers[q.questionNumber] || "").split(",").map((x) => x.trim()).includes(String(n));
+                        return (
+                          <button
+                            key={n}
+                            onClick={() => toggleMultipleAnswer(q.questionNumber, String(n))}
+                            className={`h-10 w-10 rounded-lg text-sm font-bold transition active:scale-95 ${
+                              selected
+                                ? "bg-indigo-600 text-white shadow-md"
+                                : "bg-gray-100 text-black hover:bg-gray-200 active:bg-gray-300"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={answers[q.questionNumber] || ""}
+                      onChange={(e) => handleTypingInput(q.questionNumber, e.target.value, "subjective")}
+                      placeholder="답을 입력하세요"
+                      className="w-full rounded-lg border-2 border-gray-200 px-3 py-2.5 text-sm text-black focus:border-blue-500 focus:outline-none"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : inputMode === "button" ? (
+          /* 버튼 모드 - 객관식만 */
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {assignment.questions.map((q) => (
               <div key={q.questionNumber} className="rounded-lg border border-gray-200 p-3">
@@ -258,9 +346,9 @@ function SubmitAnswerContent() {
                   {[1, 2, 3, 4, 5].map((n) => (
                     <button
                       key={n}
-                      onClick={() => updateAnswer(q.questionNumber, n)}
+                      onClick={() => updateChoiceAnswer(q.questionNumber, String(n))}
                       className={`h-10 w-10 rounded-lg text-sm font-bold transition active:scale-95 sm:h-9 sm:w-9 ${
-                        answers[q.questionNumber] === n
+                        answers[q.questionNumber] === String(n)
                           ? "bg-blue-600 text-white shadow-md"
                           : "bg-gray-100 text-black hover:bg-gray-200 active:bg-gray-300"
                       }`}
@@ -273,7 +361,7 @@ function SubmitAnswerContent() {
             ))}
           </div>
         ) : (
-          /* 타이핑 모드 */
+          /* 타이핑 모드 - 객관식만 */
           <div className="grid grid-cols-4 gap-3 sm:grid-cols-5">
             {assignment.questions.map((q) => (
               <div key={q.questionNumber} className="text-center">
@@ -301,7 +389,7 @@ function SubmitAnswerContent() {
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-black">
-            응답: {Object.keys(answers).length}/{assignment.totalQuestions}
+            응답: {Object.keys(answers).filter((k) => answers[parseInt(k)]).length}/{assignment.totalQuestions}
           </p>
           <button
             onClick={handleSubmit}

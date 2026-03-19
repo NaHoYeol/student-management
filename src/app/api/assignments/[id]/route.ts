@@ -34,6 +34,7 @@ export async function GET(
       questions: assignment.questions.map((q) => ({
         id: q.id,
         questionNumber: q.questionNumber,
+        questionType: q.questionType,
         points: q.points,
       })),
     };
@@ -56,7 +57,7 @@ export async function PUT(
   const { id } = await params;
   const body = await req.json();
   const { questions } = body as {
-    questions: { questionNumber: number; correctAnswer: number; points?: number }[];
+    questions: { questionNumber: number; correctAnswer: string; questionType?: string; points?: number }[];
   };
 
   if (!questions || questions.length === 0) {
@@ -73,7 +74,8 @@ export async function PUT(
         questions: {
           create: questions.map((q) => ({
             questionNumber: q.questionNumber,
-            correctAnswer: q.correctAnswer,
+            correctAnswer: String(q.correctAnswer),
+            questionType: q.questionType || "choice",
             points: q.points ?? 1,
           })),
         },
@@ -95,7 +97,7 @@ export async function PUT(
   for (const sub of submissions) {
     const answers = sub.answers.map((a) => ({
       questionNumber: a.questionNumber,
-      studentAnswer: a.studentAnswer,
+      studentAnswer: String(a.studentAnswer),
     }));
     const result = gradeSubmission(updatedQuestions, answers);
 

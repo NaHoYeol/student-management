@@ -24,6 +24,7 @@ export async function GET(
       classDay: true,
       classTime: true,
       submissions: {
+        where: { isAgent: false },
         select: {
           id: true,
           score: true,

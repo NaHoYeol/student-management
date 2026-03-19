@@ -26,7 +26,7 @@ export async function GET(
 
 async function analyzeDifficulty(
   examContent: string,
-  questions: { questionNumber: number; correctAnswer: number }[]
+  questions: { questionNumber: number; correctAnswer: string }[]
 ): Promise<QuestionDifficulty[]> {
   let apiKey: string | null = null;
   try {
@@ -58,11 +58,11 @@ async function analyzeDifficulty(
 - 중간 난이도(2,3,4)에 몰아넣지 마세요. 실제 수능처럼 극단적인 쉬움과 어려움이 공존해야 합니다.
 
 난이도 기준:
-1 (매우 쉬움): 정답률 85~95% 예상. 단순 사실 확인, 기본 어휘, 직관적 독해. 대부분의 학생이 맞힘.
-2 (쉬움): 정답률 70~85% 예상. 기본 개념 적용, 간단한 추론.
-3 (보통): 정답률 45~70% 예상. 중급 추론, 함정 선지가 있는 문제.
-4 (어려움): 정답률 20~45% 예상. 복합적 사고, 긴 지문 분석, 세밀한 독해 필요.
-5 (매우 어려움): 정답률 5~20% 예상. 킬러 문항. 고차원 추론, 함축적 의미 파악, 복합 조건 분석.`,
+1 (매우 쉬움): 정답률 90~98% 예상. 단순 사실 확인, 기본 어휘, 직관적 독해. 거의 모든 학생이 맞힘.
+2 (쉬움): 정답률 75~90% 예상. 기본 개념 적용, 간단한 추론.
+3 (보통): 정답률 40~65% 예상. 중급 추론, 함정 선지가 있는 문제.
+4 (어려움): 정답률 12~30% 예상. 복합적 사고, 긴 지문 분석, 세밀한 독해 필요. 대부분 틀림.
+5 (매우 어려움): 정답률 3~10% 예상. 킬러 문항. 고차원 추론, 함축적 의미 파악, 복합 조건 분석. 거의 모두 틀림.`,
         },
         {
           role: "user",
@@ -170,6 +170,7 @@ export async function POST(
     assignment.questions.map((q) => ({
       questionNumber: q.questionNumber,
       correctAnswer: q.correctAnswer,
+      questionType: q.questionType,
       points: q.points,
     })),
     difficulties.length > 0 ? difficulties : undefined

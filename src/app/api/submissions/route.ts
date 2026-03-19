@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { assignmentId, answers } = body as {
     assignmentId: string;
-    answers: { questionNumber: number; studentAnswer: number }[];
+    answers: { questionNumber: number; studentAnswer: string }[];
   };
 
   // Check if already submitted

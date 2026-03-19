@@ -245,8 +245,9 @@ export function AnalysisReport({
                   // 정답 아닌 선지 중 가장 많이 선택된 선지 찾기
                   let maxWrongIdx = -1;
                   let maxWrongRate = 0;
+                  const correctNums = String(q.correctAnswer).split(",").map((x) => parseInt(x.trim()));
                   q.choiceRates.forEach((r, i) => {
-                    if (i + 1 !== q.correctAnswer && r > maxWrongRate) {
+                    if (!correctNums.includes(i + 1) && r > maxWrongRate) {
                       maxWrongRate = r;
                       maxWrongIdx = i;
                     }
@@ -267,7 +268,7 @@ export function AnalysisReport({
                         <td
                           key={i}
                           className={`px-3 py-2.5 text-center ${
-                            i + 1 === q.correctAnswer
+                            String(q.correctAnswer).split(",").map((x) => parseInt(x.trim())).includes(i + 1)
                               ? "font-bold text-blue-600"
                               : i === maxWrongIdx && maxWrongRate >= 20
                                 ? "font-medium text-red-500"
@@ -312,7 +313,7 @@ export function AnalysisReport({
                   {q.choiceRates.map((r, i) => (
                     <td
                       key={i}
-                      className={`px-4 py-3 ${i + 1 === q.correctAnswer ? "font-bold text-blue-600" : "text-black"}`}
+                      className={`px-4 py-3 ${String(q.correctAnswer).split(",").map((x) => parseInt(x.trim())).includes(i + 1) ? "font-bold text-blue-600" : "text-black"}`}
                     >
                       {r.toFixed(0)}%
                     </td>
@@ -350,7 +351,7 @@ export function AnalysisReport({
                   {q.choiceRates.map((r, i) => (
                     <td
                       key={i}
-                      className={`px-4 py-3 ${i + 1 === q.correctAnswer ? "font-bold text-blue-600" : "text-black"}`}
+                      className={`px-4 py-3 ${String(q.correctAnswer).split(",").map((x) => parseInt(x.trim())).includes(i + 1) ? "font-bold text-blue-600" : "text-black"}`}
                     >
                       {r.toFixed(0)}%
                     </td>

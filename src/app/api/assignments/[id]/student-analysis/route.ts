@@ -136,7 +136,7 @@ export async function GET(
       return {
         questionNumber: a.questionNumber,
         studentAnswer: a.studentAnswer,
-        correctAnswer: q?.correctAnswer ?? 0,
+        correctAnswer: q?.correctAnswer ?? "",
         correctRate: Math.round(questionCorrectRates.get(a.questionNumber) ?? 0),
       };
     });
@@ -218,7 +218,7 @@ export async function GET(
     return {
       questionNumber: q.questionNumber,
       correctAnswer: q.correctAnswer,
-      studentAnswer: ans?.studentAnswer ?? 0,
+      studentAnswer: ans?.studentAnswer ?? "",
       isCorrect: ans?.isCorrect ?? false,
       points: q.points,
       correctRate: Math.round(questionCorrectRates.get(q.questionNumber) ?? 0),
@@ -297,7 +297,7 @@ export async function GET(
 }
 
 function analyzeWeakPattern(
-  wrongQuestions: { questionNumber: number; studentAnswer: number; correctAnswer: number; correctRate: number }[],
+  wrongQuestions: { questionNumber: number; studentAnswer: string; correctAnswer: string; correctRate: number }[],
   totalQuestions: number
 ): string {
   if (wrongQuestions.length === 0) return "모든 문항을 맞혔습니다.";
@@ -316,10 +316,13 @@ function analyzeWeakPattern(
     patterns.push("후반부 문항에서 오답이 집중됨 (집중력 저하 가능성)");
   }
 
-  // Check for specific wrong answer tendencies (찍기 패턴)
-  const wrongChoiceCounts = new Map<number, number>();
+  // Check for specific wrong answer tendencies (찍기 패턴) - 객관식만
+  const wrongChoiceCounts = new Map<string, number>();
   for (const q of wrongQuestions) {
-    wrongChoiceCounts.set(q.studentAnswer, (wrongChoiceCounts.get(q.studentAnswer) ?? 0) + 1);
+    const parsed = parseInt(q.studentAnswer);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 5) {
+      wrongChoiceCounts.set(q.studentAnswer, (wrongChoiceCounts.get(q.studentAnswer) ?? 0) + 1);
+    }
   }
   const maxWrongChoice = [...wrongChoiceCounts.entries()].sort((a, b) => b[1] - a[1])[0];
   if (maxWrongChoice && maxWrongChoice[1] >= wrongQuestions.length * 0.5 && maxWrongChoice[1] >= 5) {
@@ -328,16 +331,16 @@ function analyzeWeakPattern(
     patterns.push(`${maxWrongChoice[0]}번 선택지로 자주 오답 (${maxWrongChoice[1]}회)`);
   }
 
-  // Difficulty-based analysis (상/중상/중/중하/하)
-  const easyWrong = wrongQuestions.filter((q) => q.correctRate >= 80); // 난이도 '상'
-  const hardWrong = wrongQuestions.filter((q) => q.correctRate < 20);  // 난이도 '하'
+  // Difficulty-based analysis (오답률 기준: 상=어려움, 하=쉬움)
+  const easyWrong = wrongQuestions.filter((q) => q.correctRate >= 85); // 오답률 15% 미만 = 쉬운 문제
+  const hardWrong = wrongQuestions.filter((q) => q.correctRate < 40);  // 오답률 60%+ = 어려운 문제
 
   if (easyWrong.length >= 3) {
-    patterns.push(`난이도 '상' 문항에서 ${easyWrong.length}개 오답 - 기본기 점검 필요`);
+    patterns.push(`난이도 '하'(쉬운) 문항에서 ${easyWrong.length}개 오답 - 기본기 점검 필요`);
   }
 
   if (hardWrong.length > 0 && easyWrong.length === 0 && wrongQuestions.length <= 5) {
-    patterns.push("난이도 '하' 문항에서만 오답 - 고난도 구간 돌파 필요");
+    patterns.push("난이도 '상'(어려운) 문항에서만 오답 - 고난도 구간 돌파 필요");
   }
 
   if (wrongRate >= 50) {

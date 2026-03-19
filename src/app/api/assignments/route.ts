@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   const { title, description, questions, targetType, targetClasses, targetStudentIds } = body as {
     title: string;
     description?: string;
-    questions: { questionNumber: number; correctAnswer: number; points?: number }[];
+    questions: { questionNumber: number; correctAnswer: string; questionType?: string; points?: number }[];
     targetType?: string;
     targetClasses?: string[];
     targetStudentIds?: string[];
@@ -101,7 +101,8 @@ export async function POST(req: NextRequest) {
       questions: {
         create: questions.map((q) => ({
           questionNumber: q.questionNumber,
-          correctAnswer: q.correctAnswer,
+          correctAnswer: String(q.correctAnswer),
+          questionType: q.questionType || "choice",
           points: q.points ?? 1,
         })),
       },

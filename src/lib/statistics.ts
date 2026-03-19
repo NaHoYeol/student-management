@@ -1,9 +1,10 @@
 export interface QuestionStat {
   questionNumber: number;
-  correctAnswer: number;
+  correctAnswer: string;
+  questionType?: string;
   correctRate: number; // 0~100
-  choiceCounts: [number, number, number, number, number]; // 1~5번 선택 수
-  choiceRates: [number, number, number, number, number]; // 1~5번 선택 비율(%)
+  choiceCounts: [number, number, number, number, number]; // 1~5번 선택 수 (객관식)
+  choiceRates: [number, number, number, number, number]; // 1~5번 선택 비율(%) (객관식)
 }
 
 export interface ScoreBand {
@@ -59,12 +60,13 @@ export interface AnalysisResult {
 
 interface SubInput {
   score: number;
-  answers: { questionNumber: number; studentAnswer: number; isCorrect: boolean }[];
+  answers: { questionNumber: number; studentAnswer: string; isCorrect: boolean }[];
 }
 
 interface QInput {
   questionNumber: number;
-  correctAnswer: number;
+  correctAnswer: string;
+  questionType?: string;
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -140,8 +142,10 @@ export function computeAnalysis(
     for (const sub of submissions) {
       const ans = sub.answers.find((a) => a.questionNumber === q.questionNumber);
       if (ans) {
-        if (ans.studentAnswer >= 1 && ans.studentAnswer <= 5) {
-          choiceCounts[ans.studentAnswer - 1]++;
+        // 객관식 선택지 분포 (studentAnswer가 숫자인 경우만)
+        const parsed = parseInt(ans.studentAnswer);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 5) {
+          choiceCounts[parsed - 1]++;
         }
         if (ans.isCorrect) correct++;
       }
@@ -152,6 +156,7 @@ export function computeAnalysis(
     return {
       questionNumber: q.questionNumber,
       correctAnswer: q.correctAnswer,
+      questionType: q.questionType,
       correctRate: n > 0 ? (correct / n) * 100 : 0,
       choiceCounts,
       choiceRates,

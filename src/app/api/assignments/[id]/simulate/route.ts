@@ -117,7 +117,20 @@ ${examContent}
   }
 }
 
-// ─── 등급별 대표 에이전트 GPT 풀이 ──────────────────────────────
+// ─── 등급별 대표 에이전트 GPT 판단 (20명) ────────────────────────
+
+// GPT 호출 분포: 총 20명 (수능 비율 기반, 등급별 최소 1명)
+const GPT_CALL_DISTRIBUTION: { grade: number; count: number }[] = [
+  { grade: 1, count: 1 },
+  { grade: 2, count: 1 },
+  { grade: 3, count: 2 },
+  { grade: 4, count: 3 },
+  { grade: 5, count: 4 },
+  { grade: 6, count: 3 },
+  { grade: 7, count: 3 },
+  { grade: 8, count: 2 },
+  { grade: 9, count: 1 },
+];
 
 const GRADE_SOLVE_PROFILES = [
   {
@@ -209,19 +222,8 @@ async function solveExamByGrades(
    - 맞힐 수 있다고 판단하면 → 정답을 그대로 출력하세요.
    - 맞힐 수 없다고 판단하면 → 프로필의 "오답 행동"과 "오답 선택 패턴"에 따라 현실적인 오답을 선택하세요.
 3. 정답/오답 개수를 인위적으로 맞추지 마세요. 문항 난이도와 학생 프로필의 상호작용에 따라 자연스럽게 결정되어야 합니다.
-4. 상위 등급(1~2등급) 학생은 대부분의 문항을 맞혀야 합니다. 킬러 문항(최고난도)에서만 극소수 실수가 발생합니다.
+4. 시험이 쉬우면 상위 등급 학생이 거의 만점을 받는 것이 자연스럽고, 시험이 어려우면 하위 등급 학생의 정답이 매우 적을 수 있습니다. 시험 난이도에 따라 유연하게 판단하세요.
 5. 오답을 고를 때 랜덤으로 고르지 마세요. 해당 등급 학생이 실제로 빠지기 쉬운 매력적 오답을 선택하세요.
-
-등급별 기대 정답률 참고:
-- 1등급: 93~99% (거의 모든 문항 정답, 킬러 1~2문항만 실수 가능)
-- 2등급: 85~93%
-- 3등급: 76~85%
-- 4등급: 65~76%
-- 5등급: 50~65%
-- 6등급: 38~50%
-- 7등급: 25~38%
-- 8등급: 13~25%
-- 9등급: 3~13% (대부분 추측)
 
 응답 형식 (JSON 배열만, 설명 없이):
 [{"q": 1, "a": "3"}, {"q": 2, "a": "1"}, ...]
@@ -229,7 +231,24 @@ async function solveExamByGrades(
 - 복수정답: "1,3" 형태
 - 주관식: 답을 직접 작성 (모르면 아무 답이나 적기)`;
 
-  const promises = GRADE_SOLVE_PROFILES.map(async (profile) => {
+  // 20명 GPT 호출 목록 생성 (등급별 분포에 따라)
+  const calls: { profile: typeof GRADE_SOLVE_PROFILES[0]; subGradeHint: string }[] = [];
+  for (const { grade, count } of GPT_CALL_DISTRIBUTION) {
+    const profile = GRADE_SOLVE_PROFILES.find((p) => p.grade === grade)!;
+    for (let i = 0; i < count; i++) {
+      let hint = "";
+      if (count === 2) {
+        hint = i === 0 ? "\n※ 이 학생은 이 등급 내에서 상위에 해당합니다." : "\n※ 이 학생은 이 등급 내에서 하위에 해당합니다.";
+      } else if (count === 3) {
+        hint = `\n※ 이 학생은 이 등급 내에서 ${["상위", "중간", "하위"][i]}에 해당합니다.`;
+      } else if (count >= 4) {
+        hint = `\n※ 이 학생은 이 등급 내에서 ${["최상위", "상위", "하위", "최하위"][i]}에 해당합니다.`;
+      }
+      calls.push({ profile, subGradeHint: hint });
+    }
+  }
+
+  const promises = calls.map(async ({ profile, subGradeHint }) => {
     try {
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -238,8 +257,7 @@ async function solveExamByGrades(
           {
             role: "user",
             content: `[학생 프로필]
-등급: ${profile.grade}등급 (${profile.percentile})
-기대 정답률: ${profile.correctRange[0]}~${profile.correctRange[1]}%
+등급: ${profile.grade}등급 (${profile.percentile})${subGradeHint}
 ${profile.desc}
 
 [시험 내용]
@@ -251,8 +269,7 @@ ${questionsInfo}
 위 학생 프로필을 기반으로 각 문항을 분석하세요:
 1. 각 문항의 난이도를 파악하세요 (시험 내용을 읽고 판단).
 2. 이 학생의 실력 수준에서 해당 문항을 맞힐 수 있는지 판단하세요.
-3. 맞힐 수 있으면 정답을, 못 맞히면 프로필의 오답 패턴에 따라 현실적인 오답을 선택하세요.
-4. 전체 정답 개수가 기대 정답률 범위에 자연스럽게 들어와야 합니다.`,
+3. 맞힐 수 있으면 정답을, 못 맞히면 프로필의 오답 패턴에 따라 현실적인 오답을 선택하세요.`,
           },
         ],
         max_tokens: 2048,
@@ -279,7 +296,7 @@ ${questionsInfo}
   return allResults.filter((r): r is GptGradeResult => r !== null && r.answers.length > 0);
 }
 
-// POST: Generate 20 agent submissions for an assignment (Admin only)
+// POST: Generate 100 agent submissions (20 GPT calls → 100 interpolated) for an assignment (Admin only)
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

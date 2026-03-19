@@ -1,16 +1,16 @@
 import { gradeSubmission } from "./grading";
 
-// 수능 9등급 분포 (총 20명): 등급별 최소 1명 + 비율 반영
+// 수능 9등급 분포 (총 100명): 수능 비율 반영
 const GRADE_DISTRIBUTION: { grade: number; count: number; accuracyRange: [number, number] }[] = [
-  { grade: 1, count: 1, accuracyRange: [0.93, 0.99] },
-  { grade: 2, count: 1, accuracyRange: [0.85, 0.93] },
-  { grade: 3, count: 2, accuracyRange: [0.76, 0.85] },
-  { grade: 4, count: 3, accuracyRange: [0.65, 0.76] },
-  { grade: 5, count: 4, accuracyRange: [0.50, 0.65] },
-  { grade: 6, count: 3, accuracyRange: [0.38, 0.50] },
-  { grade: 7, count: 3, accuracyRange: [0.25, 0.38] },
-  { grade: 8, count: 2, accuracyRange: [0.13, 0.25] },
-  { grade: 9, count: 1, accuracyRange: [0.03, 0.13] },
+  { grade: 1, count: 4, accuracyRange: [0.93, 0.99] },
+  { grade: 2, count: 7, accuracyRange: [0.85, 0.93] },
+  { grade: 3, count: 12, accuracyRange: [0.76, 0.85] },
+  { grade: 4, count: 17, accuracyRange: [0.65, 0.76] },
+  { grade: 5, count: 20, accuracyRange: [0.50, 0.65] },
+  { grade: 6, count: 17, accuracyRange: [0.38, 0.50] },
+  { grade: 7, count: 12, accuracyRange: [0.25, 0.38] },
+  { grade: 8, count: 7, accuracyRange: [0.13, 0.25] },
+  { grade: 9, count: 4, accuracyRange: [0.03, 0.13] },
 ];
 
 export interface QuestionInfo {
@@ -212,27 +212,30 @@ export interface GptGradeResult {
   answers: { questionNumber: number; answer: string }[];
 }
 
-/** 등급 근접도 가중 보간으로 문항별 정답 확률 산출 */
+/** 등급 근접도 가중 보간으로 문항별 정답 확률 산출 (복수 GPT 결과 지원) */
 function computeQuestionProbability(
   targetGrade: number,
-  gradeResults: Map<number, { isCorrect: boolean; answer: string }>
+  gradeResults: Map<number, { isCorrect: boolean; answer: string }[]>
 ): number {
   let weightedSum = 0;
   let totalWeight = 0;
 
-  for (const [grade, result] of gradeResults) {
+  for (const [grade, results] of gradeResults) {
     const distance = Math.abs(targetGrade - grade);
     const weight = 1 / (1 + distance * 1.5);
-    weightedSum += weight * (result.isCorrect ? 1 : 0);
+    // 같은 등급에 복수 결과가 있으면 정답률 평균 사용
+    const correctRate = results.filter((r) => r.isCorrect).length / results.length;
+    weightedSum += weight * correctRate;
     totalWeight += weight;
   }
 
   let prob = totalWeight > 0 ? weightedSum / totalWeight : 0.5;
 
   // 자기 등급 대표의 결과를 강하게 반영
-  const ownResult = gradeResults.get(targetGrade);
-  if (ownResult) {
-    prob = prob * 0.4 + (ownResult.isCorrect ? 0.85 : 0.15) * 0.6;
+  const ownResults = gradeResults.get(targetGrade);
+  if (ownResults && ownResults.length > 0) {
+    const ownCorrectRate = ownResults.filter((r) => r.isCorrect).length / ownResults.length;
+    prob = prob * 0.4 + ownCorrectRate * 0.6;
   }
 
   // ±8% 노이즈
@@ -240,24 +243,29 @@ function computeQuestionProbability(
   return Math.max(0.02, Math.min(0.98, prob));
 }
 
-/** 오답 시 가장 가까운 등급의 대표 오답을 활용 */
+/** 오답 시 가장 가까운 등급의 GPT 오답을 활용 (복수 결과 지원) */
 function findNearestWrongAnswer(
   targetGrade: number,
-  gradeResults: Map<number, { isCorrect: boolean; answer: string }>,
+  gradeResults: Map<number, { isCorrect: boolean; answer: string }[]>,
   question: QuestionInfo
 ): string {
-  let nearest: { distance: number; answer: string } | null = null;
+  const candidates: { distance: number; answer: string }[] = [];
 
-  for (const [grade, result] of gradeResults) {
-    if (!result.isCorrect && result.answer !== question.correctAnswer) {
-      const distance = Math.abs(targetGrade - grade);
-      if (!nearest || distance < nearest.distance) {
-        nearest = { distance, answer: result.answer };
+  for (const [grade, results] of gradeResults) {
+    const distance = Math.abs(targetGrade - grade);
+    for (const result of results) {
+      if (!result.isCorrect && result.answer !== question.correctAnswer) {
+        candidates.push({ distance, answer: result.answer });
       }
     }
   }
 
-  if (nearest) return nearest.answer;
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => a.distance - b.distance);
+    const minDist = candidates[0].distance;
+    const closest = candidates.filter((c) => c.distance === minDist);
+    return closest[Math.floor(Math.random() * closest.length)].answer;
+  }
 
   const type = question.questionType || "choice";
   if (type === "multiple") return randomWrongMultiple(question.correctAnswer);
@@ -266,8 +274,8 @@ function findNearestWrongAnswer(
 }
 
 /**
- * GPT가 등급별로 판단한 결과를 기반으로 20명 에이전트 생성.
- * 9명의 대표 결과를 근접도 가중 보간하여 나머지 11명의 답안을 생성.
+ * GPT 20명의 등급별 판단 결과를 기반으로 100명 에이전트 생성.
+ * 20명의 GPT 결과를 근접도 가중 보간하여 100명의 답안을 생성.
  */
 export function generateAllAgentSubmissionsFromGptResults(
   questions: QuestionInfo[],
@@ -275,16 +283,18 @@ export function generateAllAgentSubmissionsFromGptResults(
 ): AgentSubmissionData[] {
   const results: AgentSubmissionData[] = [];
 
-  // 문항별 × 등급별 정오답 맵 구축
-  const questionGradeMaps = new Map<number, Map<number, { isCorrect: boolean; answer: string }>>();
+  // 문항별 × 등급별 정오답 맵 구축 (같은 등급에 복수 GPT 결과 지원)
+  const questionGradeMaps = new Map<number, Map<number, { isCorrect: boolean; answer: string }[]>>();
 
   for (const q of questions) {
-    const gradeMap = new Map<number, { isCorrect: boolean; answer: string }>();
+    const gradeMap = new Map<number, { isCorrect: boolean; answer: string }[]>();
     for (const gr of gptResults) {
       const ans = gr.answers.find((a) => a.questionNumber === q.questionNumber);
       if (ans) {
         const isCorrect = String(ans.answer).trim() === String(q.correctAnswer).trim();
-        gradeMap.set(gr.grade, { isCorrect, answer: ans.answer });
+        const existing = gradeMap.get(gr.grade) || [];
+        existing.push({ isCorrect, answer: ans.answer });
+        gradeMap.set(gr.grade, existing);
       }
     }
     questionGradeMaps.set(q.questionNumber, gradeMap);
@@ -337,14 +347,14 @@ export function generateAllAgentSubmissionsFromGptResults(
   return results;
 }
 
-// 실제 점수를 20명 에이전트 점수 속에 넣어 등급 추정
+// 실제 점수를 100명 에이전트 점수 속에 넣어 등급 추정
 export function estimateGrade(
   studentScore: number,
   agentScores: number[]
 ): { grade: number; rank: number; percentile: number } {
   const all = [...agentScores, studentScore].sort((a, b) => b - a);
   const rank = all.indexOf(studentScore) + 1;
-  const totalCount = all.length; // 21 (20 agents + 1 student)
+  const totalCount = all.length; // 101 (100 agents + 1 student)
   const percentile = ((totalCount - rank) / totalCount) * 100;
 
   // 수능 등급 컷 (누적 비율 기준)

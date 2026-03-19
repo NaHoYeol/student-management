@@ -205,6 +205,138 @@ export function generateAllAgentSubmissions(
   return results;
 }
 
+// ─── GPT 등급별 풀이 결과 기반 생성 ───────────────────────────
+
+export interface GptGradeResult {
+  grade: number;
+  answers: { questionNumber: number; answer: string }[];
+}
+
+/** 등급 근접도 가중 보간으로 문항별 정답 확률 산출 */
+function computeQuestionProbability(
+  targetGrade: number,
+  gradeResults: Map<number, { isCorrect: boolean; answer: string }>
+): number {
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (const [grade, result] of gradeResults) {
+    const distance = Math.abs(targetGrade - grade);
+    const weight = 1 / (1 + distance * 1.5);
+    weightedSum += weight * (result.isCorrect ? 1 : 0);
+    totalWeight += weight;
+  }
+
+  let prob = totalWeight > 0 ? weightedSum / totalWeight : 0.5;
+
+  // 자기 등급 대표의 결과를 강하게 반영
+  const ownResult = gradeResults.get(targetGrade);
+  if (ownResult) {
+    prob = prob * 0.4 + (ownResult.isCorrect ? 0.85 : 0.15) * 0.6;
+  }
+
+  // ±8% 노이즈
+  prob += (Math.random() - 0.5) * 0.16;
+  return Math.max(0.02, Math.min(0.98, prob));
+}
+
+/** 오답 시 가장 가까운 등급의 대표 오답을 활용 */
+function findNearestWrongAnswer(
+  targetGrade: number,
+  gradeResults: Map<number, { isCorrect: boolean; answer: string }>,
+  question: QuestionInfo
+): string {
+  let nearest: { distance: number; answer: string } | null = null;
+
+  for (const [grade, result] of gradeResults) {
+    if (!result.isCorrect && result.answer !== question.correctAnswer) {
+      const distance = Math.abs(targetGrade - grade);
+      if (!nearest || distance < nearest.distance) {
+        nearest = { distance, answer: result.answer };
+      }
+    }
+  }
+
+  if (nearest) return nearest.answer;
+
+  const type = question.questionType || "choice";
+  if (type === "multiple") return randomWrongMultiple(question.correctAnswer);
+  if (type === "subjective") return "__wrong__";
+  return randomWrongChoice(question.correctAnswer);
+}
+
+/**
+ * GPT가 등급별로 실제 풀이한 결과를 기반으로 100명 에이전트 생성.
+ * 9명의 대표 결과를 근접도 가중 보간하여 나머지 91명의 답안을 생성.
+ */
+export function generateAllAgentSubmissionsFromGptResults(
+  questions: QuestionInfo[],
+  gptResults: GptGradeResult[]
+): AgentSubmissionData[] {
+  const results: AgentSubmissionData[] = [];
+
+  // 문항별 × 등급별 정오답 맵 구축
+  const questionGradeMaps = new Map<number, Map<number, { isCorrect: boolean; answer: string }>>();
+
+  for (const q of questions) {
+    const gradeMap = new Map<number, { isCorrect: boolean; answer: string }>();
+    for (const gr of gptResults) {
+      const ans = gr.answers.find((a) => a.questionNumber === q.questionNumber);
+      if (ans) {
+        const isCorrect = String(ans.answer).trim() === String(q.correctAnswer).trim();
+        gradeMap.set(gr.grade, { isCorrect, answer: ans.answer });
+      }
+    }
+    questionGradeMaps.set(q.questionNumber, gradeMap);
+  }
+
+  for (const { grade, count, accuracyRange } of GRADE_DISTRIBUTION) {
+    for (let i = 0; i < count; i++) {
+      const answers: AgentAnswer[] = questions.map((q) => {
+        const gradeMap = questionGradeMaps.get(q.questionNumber);
+        const type = q.questionType || "choice";
+
+        // GPT 결과가 없는 문항은 단순 확률 폴백
+        if (!gradeMap || gradeMap.size === 0) {
+          const accuracy = randomInRange(accuracyRange[0], accuracyRange[1]);
+          if (Math.random() < accuracy) {
+            return { questionNumber: q.questionNumber, studentAnswer: q.correctAnswer };
+          }
+          if (type === "multiple") return { questionNumber: q.questionNumber, studentAnswer: randomWrongMultiple(q.correctAnswer) };
+          if (type === "subjective") return { questionNumber: q.questionNumber, studentAnswer: "__wrong__" };
+          return { questionNumber: q.questionNumber, studentAnswer: randomWrongChoice(q.correctAnswer) };
+        }
+
+        const prob = computeQuestionProbability(grade, gradeMap);
+
+        if (Math.random() < prob) {
+          return { questionNumber: q.questionNumber, studentAnswer: q.correctAnswer };
+        }
+
+        return {
+          questionNumber: q.questionNumber,
+          studentAnswer: findNearestWrongAnswer(grade, gradeMap, q),
+        };
+      });
+
+      const graded = gradeSubmission(questions, answers);
+      results.push({
+        agentGrade: grade,
+        answers,
+        score: graded.score,
+        totalPoints: graded.totalPoints,
+        details: graded.details.map((d) => ({
+          questionNumber: d.questionNumber,
+          studentAnswer: d.studentAnswer,
+          isCorrect: d.isCorrect,
+        })),
+      });
+    }
+  }
+
+  return results;
+}
+
 // 실제 점수를 100명 에이전트 점수 속에 넣어 등급 추정
 export function estimateGrade(
   studentScore: number,

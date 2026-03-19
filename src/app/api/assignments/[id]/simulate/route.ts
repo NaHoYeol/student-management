@@ -323,36 +323,27 @@ export async function POST(
     points: q.points,
   }));
 
-  // 1차: 시험지가 있으면 100명 전원 GPT 병렬 호출
-  let agentResults;
+  // 100명 GPT 병렬 호출 → 실패분은 확률 기반으로 보충하여 항상 100명 보장
+  let agentResults: Awaited<ReturnType<typeof gradeGptResultsDirectly>>;
   let simulationMethod = "simple";
 
   if (contentForGpt && apiKey && apiKey !== "x") {
     const gptResults = await solveExamAllAgents(apiKey, contentForGpt, questionsForSim);
 
-    if (gptResults.length >= 80) {
-      // 80%+ 성공 → GPT 결과 직접 채점 (보간 없음)
+    if (gptResults.length > 0) {
       agentResults = gradeGptResultsDirectly(questionsForSim, gptResults);
       simulationMethod = "gpt-direct";
-    } else if (gptResults.length >= 10) {
-      // 부분 성공 → 확보된 결과로 보간 확장
-      agentResults = generateAllAgentSubmissionsFromGptResults(questionsForSim, gptResults);
-      simulationMethod = "gpt-interpolated";
     } else {
-      // GPT 대부분 실패 → 난이도 분석 폴백
-      const difficulties = await analyzeDifficulty(
-        contentForGpt,
-        assignment.questions.map((q) => ({
-          questionNumber: q.questionNumber,
-          correctAnswer: q.correctAnswer,
-        }))
-      );
-      agentResults = generateAllAgentSubmissions(questionsForSim, difficulties.length > 0 ? difficulties : undefined);
-      simulationMethod = difficulties.length > 0 ? "difficulty" : "simple";
+      agentResults = generateAllAgentSubmissions(questionsForSim);
     }
   } else {
-    // 시험지 없음 → 단순 확률 기반
     agentResults = generateAllAgentSubmissions(questionsForSim);
+  }
+
+  // 100명 미달 시 확률 기반 에이전트로 보충
+  if (agentResults.length < 100) {
+    const supplement = generateAllAgentSubmissions(questionsForSim);
+    agentResults.push(...supplement.slice(0, 100 - agentResults.length));
   }
 
   // DB 저장

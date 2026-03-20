@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateAllAgentSubmissions, generateAllAgentSubmissionsFromGptResults, gradeGptResultsDirectly, GRADE_DISTRIBUTION } from "@/lib/agent-simulation";
-import type { QuestionDifficulty, GptGradeResult } from "@/lib/agent-simulation";
+import { generateAllAgentSubmissions, generateAgentsFromTeacherAnalysis } from "@/lib/agent-simulation";
+import type { TeacherQuestionAnalysis } from "@/lib/agent-simulation";
 import { parseStoredExamData, sectionsToMarkdown } from "@/lib/exam-parser";
 import OpenAI from "openai";
 
@@ -24,137 +24,13 @@ export async function GET(
   return NextResponse.json({ count });
 }
 
-async function analyzeDifficulty(
-  examContent: string,
-  questions: { questionNumber: number; correctAnswer: string }[]
-): Promise<QuestionDifficulty[]> {
-  let apiKey: string | null = null;
-  try {
-    const setting = await prisma.setting.findUnique({ where: { key: "openai_api_key" } });
-    apiKey = setting?.value || null;
-  } catch {
-    return [];
-  }
+// ─── GPT 1회 호출: 최고의 선생님이 문항 분석 ─────────────────────
 
-  if (!apiKey || apiKey === "x") return [];
-
-  try {
-    const openai = new OpenAI({ apiKey });
-
-    const questionsInfo = questions
-      .map((q) => `${q.questionNumber}번 (정답: ${q.correctAnswer})`)
-      .join(", ");
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `당신은 한국 고3 학원 시험 문제의 난이도를 분석하는 전문가입니다. JSON만 반환해 주세요.
-
-핵심 원칙:
-- 이 시험의 응시자는 학원에 다니는 고3 학생들입니다. 기본기가 갖춰진 학생들이므로, 난이도를 과대평가하지 마세요.
-- 단순히 지문이 길거나 선택지가 복잡해 보인다고 어려운 문제가 아닙니다. 교과 과정을 성실히 이수한 고3 학생이 해당 개념을 알고 있을 가능성을 기준으로 판단하세요.
-- 대부분의 문항은 난이도 1~3에 해당해야 합니다. 난이도 4~5는 정말로 고난도인 문항에만 부여하세요.
-
-난이도 분포 가이드 (전체 문항 대비):
-- 난이도 1: 약 30% (기본 문항)
-- 난이도 2: 약 30% (표준 문항)
-- 난이도 3: 약 25% (변별력 문항)
-- 난이도 4: 약 10% (고난도)
-- 난이도 5: 약 5% (킬러 문항, 없을 수도 있음)
-
-난이도 기준:
-1 (매우 쉬움): 정답률 85~97%. 단순 개념 확인, 직관적 판단. 준비된 학생이라면 거의 틀리지 않음.
-2 (쉬움): 정답률 70~85%. 기본 개념 적용, 1단계 추론. 대부분의 학생이 맞힘.
-3 (보통): 정답률 50~70%. 2단계 이상 추론, 매력적 오답 존재. 상위권과 중위권이 갈리는 구간.
-4 (어려움): 정답률 30~50%. 복합적 사고, 세밀한 분석 필요. 상위권도 고민하는 문제.
-5 (매우 어려움): 정답률 10~30%. 킬러 문항. 고차원 추론 필요. 최상위권만 맞힘.`,
-        },
-        {
-          role: "user",
-          content: `다음은 시험지에서 추출한 내용입니다:
-
-${examContent}
-
-문항 정보: ${questionsInfo}
-
-각 문항별로 난이도를 분석해 주세요. 반드시 다음 JSON 형식으로만 반환해 주세요 (설명 없이 JSON 배열만):
-[
-  {
-    "questionNumber": 1,
-    "difficulty": 3,
-    "commonWrongAnswer": 2,
-    "secondWrongAnswer": 4
-  }
-]
-
-- difficulty: 1~5 (위 기준 참고. 대부분 1~3에 분포시키고, 4~5는 정말 어려운 문항에만 부여할 것)
-- commonWrongAnswer: 학생들이 가장 많이 고르는 오답 번호 (1~5, 정답 제외)
-- secondWrongAnswer: 두 번째로 많이 고르는 오답 번호 (1~5, 정답 제외)`,
-        },
-      ],
-      max_tokens: 4096,
-      temperature: 0.4,
-    });
-
-    const text = response.choices[0]?.message?.content || "";
-    // Extract JSON from response (might be wrapped in markdown code block)
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return [];
-
-    const parsed = JSON.parse(jsonMatch[0]) as QuestionDifficulty[];
-    // Validate and filter
-    return parsed.filter(
-      (d) =>
-        typeof d.questionNumber === "number" &&
-        typeof d.difficulty === "number" &&
-        d.difficulty >= 1 &&
-        d.difficulty <= 5
-    );
-  } catch {
-    return [];
-  }
-}
-
-// ─── 100명 에이전트 GPT 병렬 판단 ────────────────────────────────
-
-function getSubGradeHint(index: number, total: number): string {
-  if (total <= 1) return "";
-  const position = index / (total - 1); // 0.0 (최상위) ~ 1.0 (최하위)
-  if (position <= 0.15) return "\n※ 이 학생은 이 등급 내에서 최상위에 해당합니다.";
-  if (position <= 0.35) return "\n※ 이 학생은 이 등급 내에서 상위에 해당합니다.";
-  if (position <= 0.65) return "\n※ 이 학생은 이 등급 내에서 중간에 해당합니다.";
-  if (position <= 0.85) return "\n※ 이 학생은 이 등급 내에서 하위에 해당합니다.";
-  return "\n※ 이 학생은 이 등급 내에서 최하위에 해당합니다.";
-}
-
-const GRADE_SOLVE_PROFILES = [
-  { grade: 1, percentile: "상위 4%",
-    wrongBehavior: "틀릴 때는 반드시 두 번째로 그럴듯한 선택지를 고름. 절대 엉뚱한 오답은 선택하지 않음." },
-  { grade: 2, percentile: "상위 11%",
-    wrongBehavior: "정답과 가장 유사한 선택지를 고름. 부분적으로 참인 정보를 담은 매력적 오답에 약함." },
-  { grade: 3, percentile: "상위 23%",
-    wrongBehavior: "지문 속 키워드가 직접 언급된 선택지를 선호. 범위 한정어를 놓쳐 과잉 일반화하는 실수." },
-  { grade: 4, percentile: "상위 40%",
-    wrongBehavior: "조건의 일부만 충족하는 부분 정답에 빠짐. 소거법으로 2개 남기고 오답을 고르는 패턴." },
-  { grade: 5, percentile: "상위 60%",
-    wrongBehavior: "익숙한 용어가 들어간 선지에 끌림. 지문을 대충 읽고 키워드 매칭으로 답을 고름." },
-  { grade: 6, percentile: "상위 77%",
-    wrongBehavior: "가장 길고 자세한 선택지가 정답이라는 편향. 확신 없으면 가운데 번호(2,3번) 선호." },
-  { grade: 7, percentile: "상위 89%",
-    wrongBehavior: "소거법 미사용. 첫 번째로 그럴듯해 보이는 선지를 바로 선택. 후반부 집중력 급락." },
-  { grade: 8, percentile: "상위 96%",
-    wrongBehavior: "지문에서 눈에 띈 단어가 포함된 아무 선지를 고름. 후반부 문항은 거의 찍기." },
-  { grade: 9, percentile: "상위 100%",
-    wrongBehavior: "사실상 추측. 양 끝(1,5번) 기피하고 가운데(2,3,4번)를 약간 선호하는 경향." },
-];
-
-async function solveExamAllAgents(
+async function analyzeExamAsTeacher(
   apiKey: string,
   examContent: string,
   questions: { questionNumber: number; correctAnswer: string; questionType: string }[]
-): Promise<GptGradeResult[]> {
+): Promise<TeacherQuestionAnalysis[]> {
   const openai = new OpenAI({ apiKey });
 
   const questionsInfo = questions
@@ -164,105 +40,89 @@ async function solveExamAllAgents(
     })
     .join(", ");
 
-  const systemPrompt = `당신은 한국 고등학생 시험 응시를 시뮬레이션하는 교육 평가 전문가입니다.
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: `당신은 대한민국 최고의 수능/내신 전문 강사입니다. 20년 이상의 경력으로 수만 명의 고3 학생들을 가르쳐왔고, 학생들이 어떤 문제에서 어떤 실수를 하는지 정확히 파악합니다.
 
-## 작업 절차
-1. 각 문항의 난이도를 1~5로 평가하세요.
-2. 주어진 등급의 학생이 해당 난이도의 문항을 맞힐 확률을 아래 매트릭스에서 찾으세요.
-3. 그 확률에 기반하여 정답 또는 오답을 결정하세요.
-4. 오답일 경우, 프로필의 오답 선택 패턴에 따라 현실적인 오답을 고르세요.
+## 작업
+각 문항을 직접 풀어보고, 고3 학생 관점에서 난이도와 오답 패턴을 분석하세요.
 
-## 난이도 판정 기준 (정답을 모르는 학생 관점에서 판단)
+## 분석 절차
+1. 각 문항을 직접 풀어보세요.
+2. 정답을 모르는 학생의 시점에서 난이도를 1~5로 판정하세요.
+3. 각 오답 선지에 대해, **오답을 고르는 학생들 중** 해당 선지를 선택할 비율(%)을 추정하세요.
+
+## 난이도 기준
 ⚠️ 주의: 당신은 정답을 알고 있으므로 모든 문항이 쉬워 보일 수 있습니다. 정답을 모르는 학생의 시점에서 판단하세요.
-- 1 (기본): 교과서 본문만 읽었어도 바로 풀 수 있는 문항
-- 2 (표준): 1단계 추론 필요. 개념을 이해한 학생이면 무난
-- 3 (응용): 2단계 이상 추론 또는 매력적 오답 존재. 중위권과 상위권이 갈리는 문항
-- 4 (고난도): 복합적 사고, 세밀한 분석 필요. 상위권도 고민하는 문항
-- 5 (킬러): 최상위권만 정답 도달 가능. 고차원 추론 필요
+- 1 (기본): 교과서만 읽었으면 바로 풀 수 있음. 정답률 85~97%
+- 2 (표준): 1단계 추론. 정답률 70~85%
+- 3 (응용): 2단계 추론, 매력적 오답 존재. 정답률 50~70%
+- 4 (고난도): 복합적 사고 필요. 정답률 30~50%
+- 5 (킬러): 최상위권만 풀 수 있음. 정답률 10~30%
 
-## 등급 × 난이도 정답 확률 매트릭스
-         난이도1  난이도2  난이도3  난이도4  난이도5
-1등급:   99%     97%     90%     75%     50%
-2등급:   97%     92%     78%     55%     30%
-3등급:   95%     85%     65%     38%     15%
-4등급:   90%     75%     50%     25%     8%
-5등급:   82%     60%     35%     15%     5%
-6등급:   70%     45%     22%     8%      3%
-7등급:   55%     30%     12%     4%      2%
-8등급:   40%     20%     7%      2%      1%
-9등급:   25%     12%     4%      1%      1%
+난이도 분포 가이드 (전체 문항 대비):
+- 난이도 1: 약 30%, 난이도 2: 약 30%, 난이도 3: 약 25%, 난이도 4: 약 10%, 난이도 5: 약 5%
+대부분의 문항은 1~3이어야 합니다. 4~5는 정말 어려운 문항에만 부여하세요.
+
+## 오답 분석 시 고려 사항
+- 실제 수능/모의고사에서 학생들이 범하는 전형적인 실수 패턴을 반영하세요.
+- 매력적 오답(정답과 유사하거나 부분적으로 맞는 선지)에 높은 비율을 부여하세요.
+- 전혀 관련 없는 선지에는 낮은 비율을 부여하세요.
+- 각 문항의 오답 비율 합계는 반드시 100이어야 합니다.
+- 주관식 문항은 wrong 필드를 빈 객체 {}로 두세요.
 
 ## 응답 형식 (JSON 배열만, 설명 없이)
-[{"q": 1, "d": 2, "a": "3"}, {"q": 2, "d": 4, "a": "1"}, ...]
+[
+  {"q": 1, "d": 3, "wrong": {"1": 15, "2": 55, "4": 20, "5": 10}},
+  {"q": 2, "d": 1, "wrong": {"1": 30, "3": 40, "4": 20, "5": 10}}
+]
 - q: 문항 번호
 - d: 난이도 (1~5)
-- a: 학생의 답 (정답 또는 오답)
-- 객관식: "1"~"5" 중 하나
-- 복수정답: "1,3" 형태
-- 주관식: 답을 직접 작성`;
+- wrong: 오답 선지별 선택 비율 (%). 정답 선지는 포함하지 말 것. 합계 = 100
+  주관식이면 {}`,
+      },
+      {
+        role: "user",
+        content: `다음은 시험지에서 추출한 내용입니다:
 
-  // 100명 GPT 호출 목록 생성 (수능 등급 분포: 4-7-12-17-20-17-12-7-4)
-  const calls: { profile: typeof GRADE_SOLVE_PROFILES[0]; subGradeHint: string }[] = [];
-  for (const { grade, count } of GRADE_DISTRIBUTION) {
-    const profile = GRADE_SOLVE_PROFILES.find((p) => p.grade === grade)!;
-    for (let i = 0; i < count; i++) {
-      calls.push({ profile, subGradeHint: getSubGradeHint(i, count) });
-    }
-  }
-
-  // 100명 전원 병렬 호출
-  const makeCall = async ({ profile, subGradeHint }: typeof calls[0]): Promise<GptGradeResult | null> => {
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `[학생 정보]
-등급: ${profile.grade}등급 (${profile.percentile})${subGradeHint}
-오답 선택 패턴: ${profile.wrongBehavior}
-
-[시험 내용]
 ${examContent}
 
-[문항 정보 (정답 포함)]
-${questionsInfo}
+문항 정보: ${questionsInfo}
 
-각 문항에 대해:
-1. 난이도(1~5)를 판정하세요 (정답을 모르는 학생 기준).
-2. 매트릭스에서 ${profile.grade}등급 × 해당 난이도의 확률을 참고하여 정답/오답을 결정하세요.
-3. 오답이면 위 오답 선택 패턴에 따라 현실적인 오답 번호를 고르세요.`,
-          },
-        ],
-        max_tokens: 2048,
-        temperature: 0.7,
-      });
+위 시험지의 각 문항에 대해:
+1. 직접 풀어보세요.
+2. 고3 학생 기준 난이도(1~5)를 판정하세요.
+3. 오답을 고르는 학생들이 어떤 선지를 고를지 비율(%)로 분석하세요.
 
-      const text = response.choices[0]?.message?.content || "";
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) return null;
+JSON 배열만 반환해 주세요.`,
+      },
+    ],
+    max_tokens: 4096,
+    temperature: 0.3,
+  });
 
-      const parsed = JSON.parse(jsonMatch[0]) as { q: number; d?: number; a: string }[];
-      return {
-        grade: profile.grade,
-        answers: parsed
-          .filter((p) => typeof p.q === "number" && p.a !== undefined)
-          .map((p) => ({ questionNumber: p.q, answer: String(p.a) })),
-      } as GptGradeResult;
-    } catch {
-      return null;
-    }
-  };
+  const text = response.choices[0]?.message?.content || "";
+  const jsonMatch = text.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) return [];
 
-  const allResults = await Promise.all(calls.map(makeCall));
-  return allResults.filter((r): r is GptGradeResult => r !== null && r.answers.length > 0);
+  const parsed = JSON.parse(jsonMatch[0]) as TeacherQuestionAnalysis[];
+  return parsed.filter(
+    (a) =>
+      typeof a.q === "number" &&
+      typeof a.d === "number" &&
+      a.d >= 1 &&
+      a.d <= 5 &&
+      typeof a.wrong === "object"
+  );
 }
 
-// Vercel 서버리스 함수 타임아웃 설정 (100명 병렬 GPT 호출 + DB 저장)
-export const maxDuration = 120;
+// Vercel 서버리스 타임아웃
+export const maxDuration = 60;
 
-// POST: Generate 100 agent submissions via 100 parallel GPT calls (Admin only)
+// POST: Generate 100 agent submissions via single GPT analysis (Admin only)
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -323,27 +183,25 @@ export async function POST(
     points: q.points,
   }));
 
-  // 100명 GPT 병렬 호출 → 실패분은 확률 기반으로 보충하여 항상 100명 보장
-  let agentResults: Awaited<ReturnType<typeof gradeGptResultsDirectly>>;
+  // GPT 1회 호출로 선생님 분석 → 100명 생성, 실패 시 확률 기반 폴백
+  let agentResults;
   let simulationMethod = "simple";
 
   if (contentForGpt && apiKey && apiKey !== "x") {
-    const gptResults = await solveExamAllAgents(apiKey, contentForGpt, questionsForSim);
+    try {
+      const analysis = await analyzeExamAsTeacher(apiKey, contentForGpt, questionsForSim);
 
-    if (gptResults.length > 0) {
-      agentResults = gradeGptResultsDirectly(questionsForSim, gptResults);
-      simulationMethod = "gpt-direct";
-    } else {
+      if (analysis.length > 0) {
+        agentResults = generateAgentsFromTeacherAnalysis(questionsForSim, analysis);
+        simulationMethod = "teacher-analysis";
+      } else {
+        agentResults = generateAllAgentSubmissions(questionsForSim);
+      }
+    } catch {
       agentResults = generateAllAgentSubmissions(questionsForSim);
     }
   } else {
     agentResults = generateAllAgentSubmissions(questionsForSim);
-  }
-
-  // 100명 미달 시 확률 기반 에이전트로 보충
-  if (agentResults.length < 100) {
-    const supplement = generateAllAgentSubmissions(questionsForSim);
-    agentResults.push(...supplement.slice(0, 100 - agentResults.length));
   }
 
   // DB 저장

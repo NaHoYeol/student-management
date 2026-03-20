@@ -204,40 +204,62 @@ export async function POST(
     agentResults = generateAllAgentSubmissions(questionsForSim);
   }
 
-  // DB 저장
-  let created = 0;
-  for (const agent of agentResults) {
-    const agentEmail = `agent-${id}-${created}@internal`;
-    let user = await prisma.user.findFirst({ where: { email: agentEmail } });
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email: agentEmail,
-          name: `Agent ${created + 1}`,
-          role: "STUDENT",
-        },
-      });
-    }
+  // DB 저장 (배치 최적화: 순차 300쿼리 → 배치 ~10쿼리)
+  const agentEmails = agentResults.map((_, i) => `agent-${id}-${i}@internal`);
 
-    await prisma.submission.create({
-      data: {
-        studentId: user.id,
-        assignmentId: id,
-        score: agent.score,
-        totalPoints: agent.totalPoints,
-        gradedAt: new Date(),
-        isAgent: true,
-        agentGrade: agent.agentGrade,
-        answers: {
-          create: agent.details.map((d) => ({
-            questionNumber: d.questionNumber,
-            studentAnswer: d.studentAnswer,
-            isCorrect: d.isCorrect,
-          })),
-        },
-      },
+  // 1) 기존 에이전트 유저 일괄 조회
+  const existingUsers = await prisma.user.findMany({
+    where: { email: { in: agentEmails } },
+  });
+  const userMap = new Map(existingUsers.map((u) => [u.email, u]));
+
+  // 2) 없는 유저만 일괄 생성
+  const missingEmails = agentEmails.filter((e) => !userMap.has(e));
+  if (missingEmails.length > 0) {
+    await prisma.user.createMany({
+      data: missingEmails.map((email) => ({
+        email,
+        name: `Agent ${agentEmails.indexOf(email) + 1}`,
+        role: "STUDENT" as const,
+      })),
+      skipDuplicates: true,
     });
-    created++;
+    const newUsers = await prisma.user.findMany({
+      where: { email: { in: missingEmails } },
+    });
+    for (const u of newUsers) userMap.set(u.email, u);
+  }
+
+  // 3) Submission 병렬 배치 생성 (20개씩)
+  let created = 0;
+  const SUB_BATCH = 20;
+  for (let i = 0; i < agentResults.length; i += SUB_BATCH) {
+    const batch = agentResults.slice(i, i + SUB_BATCH);
+    await Promise.all(
+      batch.map((agent, j) => {
+        const idx = i + j;
+        const user = userMap.get(agentEmails[idx])!;
+        return prisma.submission.create({
+          data: {
+            studentId: user.id,
+            assignmentId: id,
+            score: agent.score,
+            totalPoints: agent.totalPoints,
+            gradedAt: new Date(),
+            isAgent: true,
+            agentGrade: agent.agentGrade,
+            answers: {
+              create: agent.details.map((d) => ({
+                questionNumber: d.questionNumber,
+                studentAnswer: d.studentAnswer,
+                isCorrect: d.isCorrect,
+              })),
+            },
+          },
+        });
+      })
+    );
+    created += batch.length;
   }
 
   return NextResponse.json({

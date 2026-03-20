@@ -182,8 +182,8 @@ JSON 배열만 반환해 주세요.`,
   );
 }
 
-// Vercel 서버리스 타임아웃
-export const maxDuration = 60;
+// Vercel 서버리스 타임아웃 (Pro: 300초, Hobby: 60초 자동 캡)
+export const maxDuration = 300;
 
 // POST: Generate 100 agent submissions via single GPT analysis (Admin only)
 export async function POST(
@@ -267,16 +267,15 @@ export async function POST(
     agentResults = generateAllAgentSubmissions(questionsForSim);
   }
 
-  // DB 저장 (배치 최적화: 순차 300쿼리 → 배치 ~10쿼리)
+  // DB 저장 (벌크 최적화: createMany 2회로 전체 저장)
   const agentEmails = agentResults.map((_, i) => `agent-${id}-${i}@internal`);
 
-  // 1) 기존 에이전트 유저 일괄 조회
+  // 1) 유저 일괄 조회/생성
   const existingUsers = await prisma.user.findMany({
     where: { email: { in: agentEmails } },
   });
   const userMap = new Map(existingUsers.map((u) => [u.email, u]));
 
-  // 2) 없는 유저만 일괄 생성
   const missingEmails = agentEmails.filter((e) => !userMap.has(e));
   if (missingEmails.length > 0) {
     await prisma.user.createMany({
@@ -293,37 +292,47 @@ export async function POST(
     for (const u of newUsers) userMap.set(u.email, u);
   }
 
-  // 3) Submission 병렬 배치 생성 (20개씩)
-  let created = 0;
-  const SUB_BATCH = 20;
-  for (let i = 0; i < agentResults.length; i += SUB_BATCH) {
-    const batch = agentResults.slice(i, i + SUB_BATCH);
-    await Promise.all(
-      batch.map((agent, j) => {
-        const idx = i + j;
-        const user = userMap.get(agentEmails[idx])!;
-        return prisma.submission.create({
-          data: {
-            studentId: user.id,
-            assignmentId: id,
-            score: agent.score,
-            totalPoints: agent.totalPoints,
-            gradedAt: new Date(),
-            isAgent: true,
-            agentGrade: agent.agentGrade,
-            answers: {
-              create: agent.details.map((d) => ({
-                questionNumber: d.questionNumber,
-                studentAnswer: d.studentAnswer,
-                isCorrect: d.isCorrect,
-              })),
-            },
-          },
-        });
-      })
-    );
-    created += batch.length;
+  // 2) Submission 벌크 생성 (ID 미리 생성)
+  const { randomUUID } = await import("crypto");
+  const now = new Date();
+  const submissionRows = agentResults.map((agent, i) => {
+    const user = userMap.get(agentEmails[i])!;
+    return {
+      id: randomUUID(),
+      studentId: user.id,
+      assignmentId: id,
+      score: agent.score,
+      totalPoints: agent.totalPoints,
+      gradedAt: now,
+      isAgent: true,
+      agentGrade: agent.agentGrade,
+    };
+  });
+
+  await prisma.submission.createMany({ data: submissionRows });
+
+  // 3) SubmissionAnswer 벌크 생성 (단일 createMany)
+  const answerRows: {
+    submissionId: string;
+    questionNumber: number;
+    studentAnswer: string;
+    isCorrect: boolean;
+  }[] = [];
+  for (let i = 0; i < agentResults.length; i++) {
+    const subId = submissionRows[i].id;
+    for (const d of agentResults[i].details) {
+      answerRows.push({
+        submissionId: subId,
+        questionNumber: d.questionNumber,
+        studentAnswer: d.studentAnswer,
+        isCorrect: d.isCorrect,
+      });
+    }
   }
+
+  await prisma.submissionAnswer.createMany({ data: answerRows });
+
+  const created = agentResults.length;
 
   return NextResponse.json({
     success: true,

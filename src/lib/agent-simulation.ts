@@ -95,8 +95,47 @@ function randomWrongMultiple(correctAnswer: string): string {
 
 export interface TeacherQuestionAnalysis {
   q: number;       // 문항 번호
-  d: number;       // 난이도 1~5
+  type: string;    // 문항 유형 코드 (TYPE_TO_DIFFICULTY 키)
   wrong: Record<string, number>; // 오답 선지별 선택 비율 (%), 합계 100
+}
+
+// ─── 문항 유형 → 난이도 하드코딩 매핑 (평가원 기출 데이터 기반) ────
+// GPT는 난이도 판단을 못하지만 유형 분류는 잘하므로,
+// 유형만 분류시키고 난이도는 실제 수능 정답률 데이터로 고정.
+export const TYPE_TO_DIFFICULTY: Record<string, number> = {
+  // ── 화법과 작문 (대부분 1~2) ──
+  "화작_전략파악": 1,    // 정답률 ~92%
+  "화작_고쳐쓰기": 1,    // 정답률 ~83%
+  "화작_자료활용": 2,    // 정답률 ~83%
+  "화작_조건복합": 2,    // 정답률 ~68%
+
+  // ── 문학 ──
+  "문학_내용확인": 1,    // 정답률 ~85%
+  "문학_표현법": 1,      // 정답률 ~85% (표현법/기법/공통점·차이점)
+  "문학_보기감상": 3,    // 정답률 ~61%
+  "문학_서술어함정": 3,  // 정답률 ~43% (핵심 서술어 차이)
+  "문학_고전해석": 3,    // 정답률 ~52%
+  "문학_고전보기": 4,    // 정답률 ~38%
+
+  // ── 독서 (전반적으로 1단계 높음) ──
+  "독서_내용일치": 2,    // 정답률 ~82%
+  "독서_개념적용": 3,    // 정답률 ~65%
+  "독서_정보관계": 3,    // 정답률 ~54%
+  "독서_보기적용": 4,    // 정답률 ~39%
+  "독서_복합추론": 5,    // 정답률 ~29%
+
+  // ── 문법 ──
+  "문법_개념확인": 1,    // 정답률 ~86%
+  "문법_단일규칙": 2,    // 정답률 ~79%
+  "문법_개념비교": 2,    // 정답률 ~71%
+  "문법_보기규칙": 3,    // 정답률 ~60%
+  "문법_복합역추적": 4,  // 정답률 ~44%
+  "문법_중세국어": 4,    // 정답률 ~41%
+};
+
+/** 유형 코드 → 난이도(1~5) 변환. 매칭 안 되면 중간값 3. */
+export function getTypeDifficulty(type: string): number {
+  return TYPE_TO_DIFFICULTY[type] ?? 3;
 }
 
 /** 오답 분포(wrong)에서 가중 랜덤으로 오답 선지 선택 */
@@ -129,7 +168,7 @@ export function generateAgentsFromTeacherAnalysis(
       const answers: AgentAnswer[] = questions.map((q) => {
         const a = analysisMap.get(q.questionNumber);
         const type = q.questionType || "choice";
-        const difficulty = a?.d ?? 3;
+        const difficulty = a ? getTypeDifficulty(a.type) : 3;
 
         // 등급 × 난이도 매트릭스에서 정답 확률 조회
         let correctProb = ACCURACY_MATRIX[grade]?.[difficulty] ?? 0.5;

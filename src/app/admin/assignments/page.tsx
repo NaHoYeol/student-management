@@ -97,9 +97,28 @@ interface Submission {
 interface Assignment {
   id: string;
   title: string;
+  description?: string;
   totalQuestions: number;
   questions: { questionNumber: number; correctAnswer: string; questionType: string; points: number }[];
   examContent?: string;
+  targetType: string;
+  targetClasses?: string;
+  targetStudentIds?: string;
+}
+
+interface StudentData {
+  id: string;
+  name: string | null;
+  email: string;
+  school: string | null;
+  grade: string | null;
+  classDay: string | null;
+  classTime: string | null;
+}
+
+function studentGroupLabel(s: StudentData): string {
+  const parts = [s.school, s.grade, s.classDay ? `${s.classDay}요일` : null, s.classTime].filter(Boolean);
+  return parts.length > 0 ? parts.join(" / ") : "미배정";
 }
 
 interface StudentAnalysisData {
@@ -286,6 +305,17 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [studentAnalysis, setStudentAnalysis] = useState<StudentAnalysisData | null>(null);
   const [studentAnalysisLoading, setStudentAnalysisLoading] = useState(false);
+
+  // 과제 정보 수정 관련
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editTargetType, setEditTargetType] = useState<"ALL" | "CLASS" | "INDIVIDUAL">("ALL");
+  const [editSelectedClasses, setEditSelectedClasses] = useState<Set<string>>(new Set());
+  const [editSelectedStudentIds, setEditSelectedStudentIds] = useState<Set<string>>(new Set());
+  const [allStudents, setAllStudents] = useState<StudentData[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [savingInfo, setSavingInfo] = useState(false);
 
   // 재제출 승인 관련
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -517,6 +547,131 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
     setApprovingId(null);
   }
 
+  // 반 목록 계산
+  const editClassGroups = useMemo(() => {
+    const groups = new Map<string, StudentData[]>();
+    for (const s of allStudents) {
+      const key = studentGroupLabel(s);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(s);
+    }
+    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [allStudents]);
+
+  function startEditingInfo() {
+    if (!assignment) return;
+    setEditTitle(assignment.title);
+    setEditDescription(assignment.description || "");
+    setEditTargetType((assignment.targetType || "ALL") as "ALL" | "CLASS" | "INDIVIDUAL");
+
+    // 기존 반 배정 복원
+    if (assignment.targetType === "CLASS" && assignment.targetClasses) {
+      try {
+        const classes = JSON.parse(assignment.targetClasses) as string[];
+        setEditSelectedClasses(new Set(classes));
+      } catch { setEditSelectedClasses(new Set()); }
+    } else {
+      setEditSelectedClasses(new Set());
+    }
+
+    // 기존 개별 학생 배정 복원
+    if (assignment.targetType === "INDIVIDUAL" && assignment.targetStudentIds) {
+      try {
+        const ids = JSON.parse(assignment.targetStudentIds) as string[];
+        setEditSelectedStudentIds(new Set(ids));
+      } catch { setEditSelectedStudentIds(new Set()); }
+    } else {
+      setEditSelectedStudentIds(new Set());
+    }
+
+    setEditingInfo(true);
+
+    // 학생 목록 로드
+    if (allStudents.length === 0) {
+      setLoadingStudents(true);
+      fetch("/api/admin/students")
+        .then((r) => r.json())
+        .then((data) => { setAllStudents(data); setLoadingStudents(false); })
+        .catch(() => setLoadingStudents(false));
+    }
+  }
+
+  // 학생 목록 로드 (타겟 타입 변경 시)
+  useEffect(() => {
+    if (editingInfo && editTargetType !== "ALL" && allStudents.length === 0) {
+      setLoadingStudents(true);
+      fetch("/api/admin/students")
+        .then((r) => r.json())
+        .then((data) => { setAllStudents(data); setLoadingStudents(false); })
+        .catch(() => setLoadingStudents(false));
+    }
+  }, [editingInfo, editTargetType, allStudents.length]);
+
+  function toggleEditClass(className: string) {
+    setEditSelectedClasses((prev) => {
+      const next = new Set(prev);
+      if (next.has(className)) next.delete(className);
+      else next.add(className);
+      return next;
+    });
+  }
+
+  function toggleEditStudent(studentId: string) {
+    setEditSelectedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
+  }
+
+  async function handleSaveInfo() {
+    if (!editTitle.trim()) { alert("과제 제목을 입력해 주세요."); return; }
+    setSavingInfo(true);
+    const payload: Record<string, unknown> = {
+      title: editTitle,
+      description: editDescription,
+      targetType: editTargetType,
+    };
+    if (editTargetType === "CLASS") {
+      payload.targetClasses = Array.from(editSelectedClasses);
+    } else if (editTargetType === "INDIVIDUAL") {
+      payload.targetStudentIds = Array.from(editSelectedStudentIds);
+    }
+    const res = await fetch(`/api/assignments/${assignmentId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      setEditingInfo(false);
+      setLoading(true);
+      loadData();
+    } else {
+      alert("과제 정보 수정에 실패했습니다.");
+    }
+    setSavingInfo(false);
+  }
+
+  // 현재 할당 대상 텍스트
+  function targetLabel(): string {
+    if (!assignment) return "";
+    if (assignment.targetType === "ALL") return "전체";
+    if (assignment.targetType === "CLASS" && assignment.targetClasses) {
+      try {
+        const classes = JSON.parse(assignment.targetClasses) as string[];
+        return `반별: ${classes.join(", ")}`;
+      } catch { return "반별"; }
+    }
+    if (assignment.targetType === "INDIVIDUAL" && assignment.targetStudentIds) {
+      try {
+        const ids = JSON.parse(assignment.targetStudentIds) as string[];
+        return `개별 ${ids.length}명`;
+      } catch { return "개별"; }
+    }
+    return "전체";
+  }
+
   const gradeColors: Record<number, string> = {
     1: "text-blue-700 bg-blue-50",
     2: "text-blue-600 bg-blue-50",
@@ -549,23 +704,158 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
         &larr; 과제 목록으로
       </Link>
 
-      {/* 헤더 */}
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{assignment.title}</h1>
-          <p className="text-sm text-black">{assignment.totalQuestions}문항 | 제출 {submissions.length}명 | 평균 {avgScore}점</p>
+      {/* 헤더 + 과제 정보 */}
+      {editingInfo ? (
+        <div className="mb-6 rounded-lg bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold">과제 정보 수정</h2>
+          <div className="mb-4">
+            <label className="mb-1 block text-sm font-medium text-black">과제 제목 *</label>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm text-black focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div className="mb-4">
+            <label className="mb-1 block text-sm font-medium text-black">설명 (선택)</label>
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={2}
+              className="w-full rounded-lg border px-3 py-2 text-sm text-black focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          {/* 할당 대상 설정 */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-black">할당 대상</label>
+            <div className="flex gap-2 mb-3">
+              {([
+                { value: "ALL", label: "전체" },
+                { value: "CLASS", label: "반별" },
+                { value: "INDIVIDUAL", label: "개별 학생" },
+              ] as { value: typeof editTargetType; label: string }[]).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setEditTargetType(opt.value)}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium ${
+                    editTargetType === opt.value
+                      ? "bg-blue-600 text-white"
+                      : "border border-gray-300 text-black hover:bg-gray-50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {editTargetType === "CLASS" && (
+              <div className="rounded-lg border p-4">
+                <p className="mb-2 text-xs text-black">할당할 반을 선택하세요:</p>
+                {loadingStudents ? (
+                  <p className="text-sm text-black">학생 목록 로딩 중...</p>
+                ) : editClassGroups.length === 0 ? (
+                  <p className="text-sm text-black">등록된 학생이 없습니다.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {editClassGroups.map(([className, classStudents]) => (
+                      <label
+                        key={className}
+                        className="flex items-center gap-2 rounded p-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editSelectedClasses.has(className)}
+                          onChange={() => toggleEditClass(className)}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm text-black">{className}</span>
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                          {classStudents.length}명
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {editSelectedClasses.size > 0 && (
+                  <p className="mt-2 text-xs text-green-600">{editSelectedClasses.size}개 반 선택됨</p>
+                )}
+              </div>
+            )}
+
+            {editTargetType === "INDIVIDUAL" && (
+              <div className="rounded-lg border p-4">
+                <p className="mb-2 text-xs text-black">할당할 학생을 선택하세요:</p>
+                {loadingStudents ? (
+                  <p className="text-sm text-black">학생 목록 로딩 중...</p>
+                ) : allStudents.length === 0 ? (
+                  <p className="text-sm text-black">등록된 학생이 없습니다.</p>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto space-y-1">
+                    {allStudents.map((s) => (
+                      <label
+                        key={s.id}
+                        className="flex items-center gap-2 rounded p-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editSelectedStudentIds.has(s.id)}
+                          onChange={() => toggleEditStudent(s.id)}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm text-black">{s.name || s.email}</span>
+                        <span className="text-xs text-black">{studentGroupLabel(s)}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {editSelectedStudentIds.size > 0 && (
+                  <p className="mt-2 text-xs text-green-600">{editSelectedStudentIds.size}명 선택됨</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={handleSaveInfo} disabled={savingInfo}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+              {savingInfo ? "저장 중..." : "저장"}
+            </button>
+            <button onClick={() => setEditingInfo(false)}
+              className="rounded-lg border px-4 py-2 text-sm font-medium text-black hover:bg-gray-50">
+              취소
+            </button>
+          </div>
         </div>
-        <div className="flex shrink-0 gap-2">
-          <button onClick={handleSimulate} disabled={simulating}
-            className="rounded-lg border border-indigo-600 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-50">
-            {simulating ? "생성 중..." : agentCount > 0 ? "Agent 재생성 (100명)" : "Agent 시뮬레이션 (100명)"}
-          </button>
-          {(submissions.length > 0 || agentCount > 0) && (
-            <Link href={`/admin/assignments/analysis?id=${assignmentId}`}
-              className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">성적 분석</Link>
-          )}
+      ) : (
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">{assignment.title}</h1>
+            <p className="text-sm text-black">
+              {assignment.totalQuestions}문항 | 제출 {submissions.length}명 | 평균 {avgScore}점
+              {" | "}할당: {targetLabel()}
+            </p>
+            {assignment.description && (
+              <p className="mt-1 text-xs text-black">{assignment.description}</p>
+            )}
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button onClick={startEditingInfo}
+              className="rounded-lg border border-gray-400 px-4 py-2 text-sm font-medium text-black hover:bg-gray-50">
+              정보 수정
+            </button>
+            <button onClick={handleSimulate} disabled={simulating}
+              className="rounded-lg border border-indigo-600 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-50">
+              {simulating ? "생성 중..." : agentCount > 0 ? "Agent 재생성 (100명)" : "Agent 시뮬레이션 (100명)"}
+            </button>
+            {(submissions.length > 0 || agentCount > 0) && (
+              <Link href={`/admin/assignments/analysis?id=${assignmentId}`}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">성적 분석</Link>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 정답표 */}
       <div className="mb-3 flex items-center justify-between">

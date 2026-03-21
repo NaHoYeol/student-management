@@ -44,7 +44,7 @@ export async function GET(
   return NextResponse.json(assignment);
 }
 
-// PUT: Update assignment answers and re-grade submissions (Admin only)
+// PUT: Update assignment info and/or answers, re-grade submissions (Admin only)
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -56,12 +56,44 @@ export async function PUT(
 
   const { id } = await params;
   const body = await req.json();
-  const { questions } = body as {
-    questions: { questionNumber: number; correctAnswer: string; questionType?: string; points?: number }[];
+  const { questions, title, description, targetType, targetClasses, targetStudentIds } = body as {
+    questions?: { questionNumber: number; correctAnswer: string; questionType?: string; points?: number }[];
+    title?: string;
+    description?: string;
+    targetType?: string;
+    targetClasses?: string[];
+    targetStudentIds?: string[];
   };
 
+  // Update assignment info (title, description, target) if provided
+  const infoUpdate: Record<string, unknown> = {};
+  if (title !== undefined) infoUpdate.title = title;
+  if (description !== undefined) infoUpdate.description = description;
+  if (targetType !== undefined) {
+    infoUpdate.targetType = targetType;
+    if (targetType === "CLASS") {
+      infoUpdate.targetClasses = JSON.stringify(targetClasses || []);
+      infoUpdate.targetStudentIds = null;
+    } else if (targetType === "INDIVIDUAL") {
+      infoUpdate.targetStudentIds = JSON.stringify(targetStudentIds || []);
+      infoUpdate.targetClasses = null;
+    } else {
+      infoUpdate.targetClasses = null;
+      infoUpdate.targetStudentIds = null;
+    }
+  }
+
+  // If only info update (no questions change)
   if (!questions || questions.length === 0) {
-    return NextResponse.json({ error: "문항 정보는 필수입니다." }, { status: 400 });
+    if (Object.keys(infoUpdate).length === 0) {
+      return NextResponse.json({ error: "수정할 내용이 없습니다." }, { status: 400 });
+    }
+    const assignment = await prisma.assignment.update({
+      where: { id },
+      data: infoUpdate,
+      include: { questions: { orderBy: { questionNumber: "asc" } } },
+    });
+    return NextResponse.json(assignment);
   }
 
   // Update questions: delete old ones and create new ones
@@ -70,6 +102,7 @@ export async function PUT(
     prisma.assignment.update({
       where: { id },
       data: {
+        ...infoUpdate,
         totalQuestions: questions.length,
         questions: {
           create: questions.map((q) => ({

@@ -85,21 +85,19 @@ export default function StudentAssignmentsPage() {
                       수정 불가
                     </span>
                   )}
+                  <Link
+                    href={`/student/assignments/my-analysis?id=${a.id}`}
+                    className="rounded-lg border border-green-600 px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 active:bg-green-100"
+                  >
+                    내 분석
+                  </Link>
                   {a.analysisPublished && (
-                    <>
-                      <Link
-                        href={`/student/assignments/analysis?id=${a.id}`}
-                        className="rounded-lg border border-purple-600 px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50 active:bg-purple-100"
-                      >
-                        분석 결과
-                      </Link>
-                      <Link
-                        href={`/student/assignments/my-analysis?id=${a.id}`}
-                        className="rounded-lg border border-green-600 px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 active:bg-green-100"
-                      >
-                        내 분석
-                      </Link>
-                    </>
+                    <Link
+                      href={`/student/assignments/analysis?id=${a.id}`}
+                      className="rounded-lg border border-purple-600 px-3 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50 active:bg-purple-100"
+                    >
+                      분석 결과
+                    </Link>
                   )}
                 </div>
               ) : (

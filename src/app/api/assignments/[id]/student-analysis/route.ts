@@ -39,10 +39,7 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Students can only see their own analysis when published
-  if (!isAdmin && !assignment.analysisPublished) {
-    return NextResponse.json({ error: "Not published" }, { status: 403 });
-  }
+  // Students can always view their own individual analysis (no publish gate)
 
   // Check for saved analysis result (only for non-admin student viewing own result)
   if (!isAdmin) {

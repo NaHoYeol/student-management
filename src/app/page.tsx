@@ -3,20 +3,58 @@
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function deleteCookie(name: string) {
+  document.cookie = `${name}=;path=/;max-age=0`;
+}
 
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const roleSetRef = useRef(false);
 
   useEffect(() => {
-    if (session?.user) {
-      const path =
-        session.user.role === "ADMIN"
-          ? "/admin/dashboard"
-          : "/student/assignments";
-      router.replace(path);
+    if (!session?.user || roleSetRef.current) return;
+
+    const pendingRole = getCookie("pending-role");
+
+    async function applyRole() {
+      if (pendingRole && ["ADMIN", "STUDENT", "PARENT"].includes(pendingRole)) {
+        // Try to set role for new users
+        try {
+          await fetch("/api/auth/set-role", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: pendingRole }),
+          });
+        } catch {
+          // ignore - existing user or expired
+        }
+        deleteCookie("pending-role");
+      }
+
+      // Redirect based on role (re-fetch to get updated role)
+      const res = await fetch("/api/auth/session");
+      const sess = await res.json();
+      const role = sess?.user?.role || session?.user?.role;
+
+      if (role === "ADMIN") {
+        router.replace("/admin/dashboard");
+      } else if (role === "PARENT") {
+        router.replace("/parent/dashboard");
+      } else {
+        router.replace("/student/assignments");
+      }
     }
+
+    roleSetRef.current = true;
+    applyRole();
   }, [session, router]);
 
   if (status === "loading") {

@@ -9,6 +9,7 @@ datasource db {
 enum Role {
   ADMIN
   STUDENT
+  PARENT
 }
 
 model User {
@@ -33,6 +34,8 @@ model User {
   assignments Assignment[] @relation("CreatedAssignments")
   submissions Submission[]
   analysisResults StudentAnalysisResult[]
+  parentLinks     ParentLink[] @relation("ParentLinks")
+  linkedParents   ParentLink[] @relation("LinkedParents")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -178,4 +181,19 @@ model StudentAnalysisResult {
   updatedAt DateTime @updatedAt
 
   @@unique([studentId, assignmentId])
+}
+
+model ParentLink {
+  id        String   @id @default(cuid())
+  parentId  String
+  studentId String
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+
+  parent  User @relation("ParentLinks", fields: [parentId], references: [id], onDelete: Cascade)
+  student User @relation("LinkedParents", fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([parentId, studentId])
 }

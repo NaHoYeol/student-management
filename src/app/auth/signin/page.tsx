@@ -1,21 +1,57 @@
 "use client";
 
+import { useState } from "react";
 import { signIn } from "next-auth/react";
 
+type RoleOption = "ADMIN" | "STUDENT" | "PARENT";
+
+const roles: { value: RoleOption; label: string; desc: string; color: string }[] = [
+  { value: "ADMIN", label: "강사", desc: "과제 출제 및 학생 관리", color: "border-blue-500 bg-blue-50" },
+  { value: "STUDENT", label: "학생", desc: "과제 풀기 및 성적 확인", color: "border-green-500 bg-green-50" },
+  { value: "PARENT", label: "학부모", desc: "자녀 성적 확인 (읽기 전용)", color: "border-purple-500 bg-purple-50" },
+];
+
 export default function SignInPage() {
+  const [selectedRole, setSelectedRole] = useState<RoleOption | null>(null);
+
+  function handleSignIn(provider: string) {
+    if (selectedRole) {
+      document.cookie = `pending-role=${selectedRole};path=/;max-age=300`;
+    }
+    signIn(provider, { callbackUrl: "/" });
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
         <h1 className="mb-2 text-center text-2xl font-bold text-black">
           로그인
         </h1>
-        <p className="mb-8 text-center text-sm text-black">
-          소셜 계정으로 간편하게 로그인하세요
+        <p className="mb-6 text-center text-sm text-black">
+          역할을 선택한 후 소셜 계정으로 로그인하세요
         </p>
+
+        {/* 역할 선택 */}
+        <div className="mb-6 grid grid-cols-3 gap-2">
+          {roles.map((r) => (
+            <button
+              key={r.value}
+              onClick={() => setSelectedRole(r.value)}
+              className={`rounded-lg border-2 p-3 text-center transition ${
+                selectedRole === r.value
+                  ? r.color + " ring-2 ring-offset-1"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <p className="text-sm font-semibold text-black">{r.label}</p>
+              <p className="mt-0.5 text-[11px] text-gray-600">{r.desc}</p>
+            </button>
+          ))}
+        </div>
 
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => signIn("google", { callbackUrl: "/" })}
+            onClick={() => handleSignIn("google")}
             className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-gray-50"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -40,7 +76,7 @@ export default function SignInPage() {
           </button>
 
           <button
-            onClick={() => signIn("kakao", { callbackUrl: "/" })}
+            onClick={() => handleSignIn("kakao")}
             className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#FEE500] px-4 py-3 text-sm font-medium text-[#191919] transition hover:bg-[#FDD800]"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="#191919">
@@ -52,6 +88,8 @@ export default function SignInPage() {
 
         <p className="mt-6 text-center text-xs text-black">
           로그인 시 최소한의 프로필 정보(이름, 이메일)만 수집됩니다.
+          <br />
+          <span className="text-gray-500">첫 로그인 시 선택한 역할이 적용됩니다.</span>
         </p>
       </div>
     </div>

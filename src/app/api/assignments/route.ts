@@ -9,6 +9,11 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Parents should not access assignments directly
+  if (session.user.role === "PARENT") {
+    return NextResponse.json([]);
+  }
+
   const assignments = await prisma.assignment.findMany({
     where: { isActive: true },
     include: {

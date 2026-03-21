@@ -10,26 +10,41 @@ export function Nav() {
 
   if (!session) return null;
 
-  const isAdmin = session.user.role === "ADMIN";
-  const basePath = isAdmin ? "/admin" : "/student";
+  const role = session.user.role;
+  const isAdmin = role === "ADMIN";
+  const isParent = role === "PARENT";
 
   const links = isAdmin
     ? [
-        { href: `${basePath}/assignments`, label: "과제 관리" },
+        { href: "/admin/assignments", label: "과제 관리" },
         { href: "/admin/students", label: "학생 관리" },
+        { href: "/admin/parents", label: "학부모 관리" },
         { href: "/admin/class-options", label: "반 편성" },
         { href: "/admin/settings", label: "설정" },
       ]
+    : isParent
+    ? [
+        { href: "/parent/dashboard", label: "대시보드" },
+        { href: "/parent/setup", label: "자녀 관리" },
+      ]
     : [
-        { href: `${basePath}/assignments`, label: "과제 목록" },
+        { href: "/student/assignments", label: "과제 목록" },
         { href: "/student/profile", label: "내 정보" },
       ];
+
+  const homeHref = isAdmin
+    ? "/admin/dashboard"
+    : isParent
+    ? "/parent/dashboard"
+    : "/student/assignments";
+
+  const roleBadge = isAdmin ? "강사" : isParent ? "학부모" : "학생";
 
   return (
     <nav className="border-b bg-white px-4 py-3 sm:px-6">
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         {/* 로고 */}
-        <Link href={isAdmin ? `${basePath}/dashboard` : `${basePath}/assignments`} className="text-base font-bold text-blue-600 sm:text-lg">
+        <Link href={homeHref} className="text-base font-bold text-blue-600 sm:text-lg">
           학생 관리
         </Link>
 
@@ -51,7 +66,7 @@ export function Nav() {
           <span className="text-sm text-black">
             {session.user.name}{" "}
             <span className="rounded bg-gray-100 px-2 py-0.5 text-xs">
-              {isAdmin ? "강사" : "학생"}
+              {roleBadge}
             </span>
           </span>
           <button
@@ -96,7 +111,7 @@ export function Nav() {
               <div className="px-3 py-2 text-sm text-black">
                 {session.user.name}{" "}
                 <span className="rounded bg-gray-100 px-2 py-0.5 text-xs">
-                  {isAdmin ? "강사" : "학생"}
+                  {roleBadge}
                 </span>
               </div>
               <button

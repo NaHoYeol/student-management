@@ -23,7 +23,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
+      if (user || token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email! },
           select: { id: true, role: true },

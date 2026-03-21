@@ -317,6 +317,9 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [savingInfo, setSavingInfo] = useState(false);
 
+  // 미제출 학생 관련
+  const [unsubmitted, setUnsubmitted] = useState<StudentData[]>([]);
+
   // 재제출 승인 관련
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
@@ -335,13 +338,34 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
       fetch(`/api/assignments/${assignmentId}`).then((r) => r.ok ? r.json() : null),
       fetch(`/api/submissions?assignmentId=${assignmentId}`).then((r) => r.ok ? r.json() : []),
       fetch(`/api/assignments/${assignmentId}/simulate`).then((r) => r.ok ? r.json() : { count: 0 }).catch(() => ({ count: 0 })),
-    ]).then(([a, s, sim]) => {
+      fetch(`/api/admin/students`).then((r) => r.ok ? r.json() : []),
+    ]).then(([a, s, sim, students]) => {
       if (a) setAssignment(a);
       setSubmissions(s || []);
       setAgentCount(sim.count ?? 0);
       if (a?.examContent) {
         const parsed = parseStoredExamData(a.examContent);
         if (parsed) setExamData(parsed);
+      }
+      // 배정 대상 중 미제출 학생 계산
+      if (a && students.length > 0) {
+        setAllStudents(students);
+        let targeted: StudentData[] = students;
+        if (a.targetType === "CLASS" && a.targetClasses) {
+          try {
+            const classes: string[] = JSON.parse(a.targetClasses);
+            targeted = students.filter((st: StudentData) => classes.includes(studentGroupLabel(st)));
+          } catch { /* */ }
+        } else if (a.targetType === "INDIVIDUAL" && a.targetStudentIds) {
+          try {
+            const ids: string[] = JSON.parse(a.targetStudentIds);
+            targeted = students.filter((st: StudentData) => ids.includes(st.id));
+          } catch { /* */ }
+        }
+        const submittedIds = new Set(
+          (s || []).filter((sub: Submission) => !sub.isAgent).map((sub: Submission) => sub.student.id)
+        );
+        setUnsubmitted(targeted.filter((st: StudentData) => !submittedIds.has(st.id)));
       }
       setLoading(false);
     });
@@ -1025,7 +1049,13 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
 
       {/* 제출 현황 */}
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">제출 현황</h2>
+        <h2 className="text-lg font-semibold">
+          제출 현황
+          <span className="ml-2 text-sm font-normal text-gray-500">
+            제출 {submissions.filter((s) => !s.isAgent).length}명
+            {unsubmitted.length > 0 && ` / 미제출 ${unsubmitted.length}명`}
+          </span>
+        </h2>
         {submissions.length > 0 && (
           <button onClick={downloadSubmissionsCSV} className="rounded-lg border border-green-600 px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50">CSV 다운로드</button>
         )}
@@ -1178,9 +1208,33 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
             </div>
           );
         })}
-        {submissions.length === 0 && (
+        {submissions.length === 0 && unsubmitted.length === 0 && (
           <div className="rounded-lg bg-white px-4 py-8 text-center text-black shadow-sm">
             아직 제출한 학생이 없습니다.
+          </div>
+        )}
+
+        {/* 미제출 학생 */}
+        {unsubmitted.length > 0 && (
+          <div className="mt-4">
+            <h3 className="mb-2 text-sm font-semibold text-red-600">
+              미제출 ({unsubmitted.length}명)
+            </h3>
+            <div className="space-y-2">
+              {unsubmitted.map((s) => (
+                <div key={s.id} className="flex items-center justify-between rounded-lg bg-white px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium text-gray-500">{s.name || s.email}</span>
+                    <span className="text-xs text-gray-400">
+                      {[s.school, s.grade].filter(Boolean).join(" ") || s.email}
+                    </span>
+                  </div>
+                  <span className="rounded-full bg-red-100 px-3 py-0.5 text-xs font-medium text-red-600">
+                    미제출
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

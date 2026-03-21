@@ -14,7 +14,7 @@ export default function Home() {
       const path =
         session.user.role === "ADMIN"
           ? "/admin/dashboard"
-          : "/student/dashboard";
+          : "/student/assignments";
       router.replace(path);
     }
   }, [session, router]);

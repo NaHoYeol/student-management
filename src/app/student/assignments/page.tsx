@@ -47,9 +47,31 @@ export default function StudentAssignmentsPage() {
 
   if (loading) return <p className="text-black">로딩 중...</p>;
 
+  // 요약 통계
+  const submittedCount = submissionMap.size;
+  const pendingCount = assignments.length - submittedCount;
+  const scores = Array.from(submissionMap.values())
+    .filter((s) => s.score != null && s.totalPoints)
+    .map((s) => Math.round((s.score! / s.totalPoints!) * 100));
+  const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+
   return (
     <div>
-      <h1 className="mb-4 text-xl font-bold sm:mb-6 sm:text-2xl">과제 목록</h1>
+      {/* 요약 통계 */}
+      <div className="mb-4 grid grid-cols-3 gap-2 sm:mb-6 sm:gap-4">
+        <div className="rounded-lg bg-white p-3 shadow-sm text-center sm:p-4">
+          <p className="text-xs text-black">제출</p>
+          <p className="text-xl font-bold text-blue-600 sm:text-2xl">{submittedCount}개</p>
+        </div>
+        <div className="rounded-lg bg-white p-3 shadow-sm text-center sm:p-4">
+          <p className="text-xs text-black">미제출</p>
+          <p className="text-xl font-bold sm:text-2xl">{pendingCount > 0 ? `${pendingCount}개` : "-"}</p>
+        </div>
+        <div className="rounded-lg bg-white p-3 shadow-sm text-center sm:p-4">
+          <p className="text-xs text-black">평균</p>
+          <p className="text-xl font-bold text-green-600 sm:text-2xl">{avgScore != null ? `${avgScore}점` : "-"}</p>
+        </div>
+      </div>
 
       <div className="grid gap-3 sm:gap-4">
         {assignments.map((a) => {

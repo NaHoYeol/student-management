@@ -29,7 +29,7 @@ export function Nav() {
     <nav className="border-b bg-white px-4 py-3 sm:px-6">
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         {/* 로고 */}
-        <Link href={`${basePath}/dashboard`} className="text-base font-bold text-blue-600 sm:text-lg">
+        <Link href={isAdmin ? `${basePath}/dashboard` : `${basePath}/assignments`} className="text-base font-bold text-blue-600 sm:text-lg">
           학생 관리
         </Link>
 

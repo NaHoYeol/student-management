@@ -92,6 +92,8 @@ model Assignment {
   targetClasses    String? @db.Text
   targetStudentIds String? @db.Text
 
+  lastRealSubmissionAt DateTime? // 마지막 실제 학생 제출 시각 (캐시 디바운스용)
+
   createdById String
   createdBy   User   @relation("CreatedAssignments", fields: [createdById], references: [id])
 

@@ -53,31 +53,41 @@ export async function GET(
   });
 
   if (saved) {
-    let examMarkdown: string | null = null;
-    if (assignment.examContent) {
-      const examData = parseStoredExamData(assignment.examContent);
-      if (examData && examData.sections.length > 0) {
-        examMarkdown = sectionsToMarkdown(examData.sections);
-      }
-    }
+    // 디바운스 캐시 무효화: 마지막 제출 후 2시간이 지났고 캐시가 그 전에 생성된 경우 재계산
+    const CACHE_DEBOUNCE_MS = 2 * 60 * 60 * 1000; // 2시간
+    const lastSub = assignment.lastRealSubmissionAt;
+    const cacheStale = lastSub
+      && lastSub > saved.createdAt
+      && (Date.now() - lastSub.getTime()) >= CACHE_DEBOUNCE_MS;
 
-    return NextResponse.json({
-      title: assignment.title,
-      score: saved.score,
-      totalPoints: saved.totalPoints,
-      correctRate: saved.correctRate,
-      grade: saved.grade,
-      rank: saved.rank,
-      totalStudents: saved.totalStudents,
-      percentile: saved.percentile,
-      wrongQuestions: JSON.parse(saved.wrongQuestions || "[]"),
-      weakPattern: saved.weakPattern || "",
-      feedback: saved.feedback || "",
-      questionBreakdown: JSON.parse(saved.questionBreakdown || "[]"),
-      hasAgents: true,
-      cached: true,
-      examMarkdown,
-    });
+    if (!cacheStale) {
+      let examMarkdown: string | null = null;
+      if (assignment.examContent) {
+        const examData = parseStoredExamData(assignment.examContent);
+        if (examData && examData.sections.length > 0) {
+          examMarkdown = sectionsToMarkdown(examData.sections);
+        }
+      }
+
+      return NextResponse.json({
+        title: assignment.title,
+        score: saved.score,
+        totalPoints: saved.totalPoints,
+        correctRate: saved.correctRate,
+        grade: saved.grade,
+        rank: saved.rank,
+        totalStudents: saved.totalStudents,
+        percentile: saved.percentile,
+        wrongQuestions: JSON.parse(saved.wrongQuestions || "[]"),
+        weakPattern: saved.weakPattern || "",
+        feedback: saved.feedback || "",
+        questionBreakdown: JSON.parse(saved.questionBreakdown || "[]"),
+        hasAgents: true,
+        cached: true,
+        examMarkdown,
+      });
+    }
+    // 캐시가 만료됨 → 아래에서 재계산
   }
 
   // Get the student's submission

@@ -123,9 +123,10 @@ export async function POST(req: NextRequest) {
     include: { answers: true },
   });
 
-  // 새 제출로 가중 정답률이 변하므로 해당 과제의 분석 캐시 무효화
-  await prisma.studentAnalysisResult.deleteMany({
-    where: { assignmentId },
+  // 마지막 실제 제출 시각 기록 (2시간 디바운스 후 캐시 무효화)
+  await prisma.assignment.update({
+    where: { id: assignmentId },
+    data: { lastRealSubmissionAt: new Date() },
   }).catch(() => {});
 
   return NextResponse.json(submission, { status: 201 });

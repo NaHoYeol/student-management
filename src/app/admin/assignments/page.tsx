@@ -288,9 +288,6 @@ function MonthlyAssignmentList() {
                       const targetedCount = getTargetedCount(a, students);
                       const unsubmitted = Math.max(0, targetedCount - a._count.submissions);
                       const isOverdue = a.dueDate && new Date(a.dueDate) < new Date();
-                      const overdueDays = a.dueDate
-                        ? Math.floor((Date.now() - new Date(a.dueDate).getTime()) / (1000 * 60 * 60 * 24))
-                        : 0;
 
                       return (
                       <tr key={a.id} className="border-b last:border-0 hover:bg-gray-50">
@@ -322,14 +319,9 @@ function MonthlyAssignmentList() {
                         </td>
                         <td className="px-4 py-3 text-sm">
                           {a.dueDate ? (
-                            <div>
-                              <span className={isOverdue ? "text-red-600 font-medium" : "text-black"}>
-                                {new Date(a.dueDate).toLocaleDateString("ko-KR")}
-                              </span>
-                              {isOverdue && overdueDays > 0 && unsubmitted > 0 && (
-                                <span className="ml-1 text-xs text-red-500">({overdueDays}일 초과)</span>
-                              )}
-                            </div>
+                            <span className={isOverdue ? "text-red-600 font-medium" : "text-black"}>
+                              {new Date(a.dueDate).toLocaleDateString("ko-KR")}
+                            </span>
                           ) : (
                             <span className="text-gray-400">-</span>
                           )}
@@ -1333,7 +1325,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
                 if (overdueDays <= 0) return null;
                 return (
                   <span className="ml-2 text-xs font-normal text-red-500">
-                    마감 {overdueDays}일 초과
+                    마감 {overdueDays > 30 ? "한달 이상" : `${overdueDays}일`} 초과
                   </span>
                 );
               })()}
@@ -1351,7 +1343,8 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
                     미제출
                     {assignment?.dueDate && (() => {
                       const overdueDays = Math.floor((Date.now() - new Date(assignment.dueDate!).getTime()) / (1000 * 60 * 60 * 24));
-                      return overdueDays > 0 ? ` (${overdueDays}일)` : "";
+                      if (overdueDays <= 0) return "";
+                      return overdueDays > 30 ? " (한달 이상 초과)" : ` (${overdueDays}일 초과)`;
                     })()}
                   </span>
                 </div>

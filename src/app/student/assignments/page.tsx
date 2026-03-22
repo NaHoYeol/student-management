@@ -204,7 +204,7 @@ export default function StudentAssignmentsPage() {
                       if (overdueDays <= 0) return null;
                       return (
                         <p className="mt-1 text-xs font-medium text-red-600">
-                          마감일 {overdueDays}일 초과
+                          마감일 {overdueDays > 30 ? "한달 이상" : `${overdueDays}일`} 초과
                         </p>
                       );
                     })()}

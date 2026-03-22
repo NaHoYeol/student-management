@@ -183,31 +183,20 @@ export async function GET(
   // Detect weak patterns
   const weakPattern = analyzeWeakPattern(wrongQuestions, assignment.questions.length);
 
-  // Correct questions sorted by difficulty (lowest correct rate = hardest)
-  const correctQuestions = submission.answers
-    .filter((a) => a.isCorrect)
-    .map((a) => ({
-      questionNumber: a.questionNumber,
-      correctRate: questionCorrectRates.get(a.questionNumber) ?? 100,
-    }))
-    .sort((a, b) => a.correctRate - b.correctRate);
+  // 전체 문항 레퍼런스 (AI가 자유롭게 참조)
+  const questionReference = assignment.questions.map((q) => {
+    const ans = submission.answers.find((a) => a.questionNumber === q.questionNumber);
+    return {
+      questionNumber: q.questionNumber,
+      studentAnswer: ans?.studentAnswer ?? "",
+      correctAnswer: q.correctAnswer,
+      isCorrect: ans?.isCorrect ?? false,
+      correctRate: Math.round(questionCorrectRates.get(q.questionNumber) ?? 0),
+      questionText: examQuestionTexts.get(q.questionNumber) || "",
+    };
+  });
 
-  // Top 3 hardest questions the student got RIGHT (impressive!)
-  const impressiveCorrects = correctQuestions.slice(0, 3).map((q) => ({
-    questionNumber: q.questionNumber,
-    correctRate: Math.round(q.correctRate),
-    questionText: examQuestionTexts.get(q.questionNumber) || "",
-  }));
-
-  // Top 3 hardest questions the student got WRONG (critical weaknesses)
-  const wrongSortedByDifficulty = [...wrongQuestions].sort((a, b) => a.correctRate - b.correctRate);
-  const criticalWrongs = wrongSortedByDifficulty.slice(0, 3).map((q) => ({
-    questionNumber: q.questionNumber,
-    correctRate: q.correctRate,
-    questionText: examQuestionTexts.get(q.questionNumber) || "",
-  }));
-
-  // Generate AI feedback with exam content
+  // Generate AI feedback with full question reference
   const studentName = submission.student?.name || session.user.name || "학생";
   const feedback = await generateFeedback({
     studentName,
@@ -220,8 +209,7 @@ export async function GET(
     correctRate,
     wrongQuestions,
     weakPattern,
-    impressiveCorrects,
-    criticalWrongs,
+    questionReference,
   });
 
   // Per-question breakdown with correct rates

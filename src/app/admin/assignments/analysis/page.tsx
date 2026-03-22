@@ -26,6 +26,7 @@ function AnalysisContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [toggling, setToggling] = useState(false);
+  const [realStudentCount, setRealStudentCount] = useState(0);
 
   // Student list for per-student analysis
   const [students, setStudents] = useState<StudentSubmission[]>([]);
@@ -47,6 +48,7 @@ function AnalysisContent() {
         setTitle(data.title);
         setAnalysis(data.analysis);
         setPublished(data.analysisPublished);
+        setRealStudentCount(data.realStudentCount ?? 0);
         setLoading(false);
       })
       .catch(async (r) => {
@@ -208,7 +210,7 @@ function AnalysisContent() {
               이 분석 결과는 학생들에게 공개된 상태입니다.
             </div>
           )}
-          <AnalysisReport title={title} analysis={analysis} />
+          <AnalysisReport title={title} analysis={analysis} realStudentCount={realStudentCount} />
 
           {/* 학생별 분석 섹션 */}
           <div className="mt-8 print:hidden">

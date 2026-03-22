@@ -93,6 +93,7 @@ export async function GET(
     analysis,
     isStudent,
     agentOnly: agentOnly ?? false,
+    realStudentCount: realSubmissions.length,
     examMarkdown,
   });
 }

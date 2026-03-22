@@ -31,14 +31,15 @@ export function AnalysisReport({
   title,
   analysis,
   hideCount = false,
+  realStudentCount,
 }: {
   title: string;
   analysis: AnalysisResult;
   hideCount?: boolean;
+  realStudentCount?: number;
 }) {
   const a = analysis;
   const maxBandRate = Math.max(...a.scoreBands.map((b) => b.rate), 1);
-  const maxBandCount = Math.max(...a.scoreBands.map((b) => b.count), 1);
   const maxChoiceRate = 100;
 
   const [showAllChoices, setShowAllChoices] = useState(false);
@@ -51,7 +52,7 @@ export function AnalysisReport({
         <p className="mt-1 text-sm text-black">
           {hideCount
             ? `성적 분석 리포트 | ${a.totalQuestions}문항 | 만점 ${a.totalPoints}점`
-            : `성적 분석 리포트 | 응시 ${a.totalStudents}명 | ${a.totalQuestions}문항 | 만점 ${a.totalPoints}점`
+            : `성적 분석 리포트 | 응시 ${realStudentCount ?? a.totalStudents}명 | ${a.totalQuestions}문항 | 만점 ${a.totalPoints}점`
           }
         </p>
         {hideCount && (
@@ -91,11 +92,16 @@ export function AnalysisReport({
                 </tr>
                 {!hideCount && (
                   <tr>
-                    {a.gradeCutoffs.map((c) => (
-                      <td key={c.grade} className="px-2 py-2 text-xs text-black">
-                        {c.count}명
-                      </td>
-                    ))}
+                    {a.gradeCutoffs.map((c) => {
+                      const pct = a.totalStudents > 0
+                        ? ((c.count / a.totalStudents) * 100).toFixed(0)
+                        : "0";
+                      return (
+                        <td key={c.grade} className="px-2 py-2 text-xs text-black">
+                          {pct}%
+                        </td>
+                      );
+                    })}
                   </tr>
                 )}
               </tbody>
@@ -165,16 +171,13 @@ export function AnalysisReport({
                 </span>
                 <div className="flex-1">
                   <Bar
-                    value={hideCount ? b.rate : b.count}
-                    max={hideCount ? maxBandRate : maxBandCount}
+                    value={b.rate}
+                    max={maxBandRate}
                     color="bg-blue-500"
                   />
                 </div>
                 <span className="w-16 shrink-0 text-xs text-black">
-                  {hideCount
-                    ? `${b.rate.toFixed(1)}%`
-                    : `${b.count}명 (${b.rate.toFixed(0)}%)`
-                  }
+                  {b.rate.toFixed(1)}%
                 </span>
               </div>
             ))}

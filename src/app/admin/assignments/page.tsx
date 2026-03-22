@@ -317,6 +317,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
   const [allStudents, setAllStudents] = useState<StudentData[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [savingInfo, setSavingInfo] = useState(false);
+  const [editDueDate, setEditDueDate] = useState("");
 
   // 미제출 학생 관련
   const [unsubmitted, setUnsubmitted] = useState<StudentData[]>([]);
@@ -588,6 +589,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
     setEditTitle(assignment.title);
     setEditDescription(assignment.description || "");
     setEditTargetType((assignment.targetType || "ALL") as "ALL" | "CLASS" | "INDIVIDUAL");
+    setEditDueDate(assignment.dueDate ? new Date(assignment.dueDate).toISOString().split("T")[0] : "");
 
     // 기존 반 배정 복원
     if (assignment.targetType === "CLASS" && assignment.targetClasses) {
@@ -657,6 +659,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
       title: editTitle,
       description: editDescription,
       targetType: editTargetType,
+      dueDate: editDueDate || null,
     };
     if (editTargetType === "CLASS") {
       payload.targetClasses = Array.from(editSelectedClasses);
@@ -750,6 +753,20 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
               rows={2}
               className="w-full rounded-lg border px-3 py-2 text-sm text-black focus:border-blue-500 focus:outline-none"
             />
+          </div>
+
+          {/* 마감일 설정 */}
+          <div className="mb-4">
+            <label className="mb-1 block text-sm font-medium text-black">마감일 (선택)</label>
+            <input
+              type="date"
+              value={editDueDate}
+              onChange={(e) => setEditDueDate(e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm text-black focus:border-blue-500 focus:outline-none"
+            />
+            {!editDueDate && (
+              <p className="mt-1 text-xs text-gray-500">마감일을 설정하면 월별 성취도 분석에 포함됩니다.</p>
+            )}
           </div>
 
           {/* 할당 대상 설정 */}

@@ -42,44 +42,42 @@ export async function GET(
 
   // Students can always view their own individual analysis (no publish gate)
 
-  // Check for saved analysis result (only for non-admin student viewing own result)
-  if (!isAdmin) {
-    const saved = await prisma.studentAnalysisResult.findUnique({
-      where: {
-        studentId_assignmentId: {
-          studentId: targetStudentId,
-          assignmentId,
-        },
+  // 캐시된 분석 결과 조회 (강사/학생 모두 활용)
+  const saved = await prisma.studentAnalysisResult.findUnique({
+    where: {
+      studentId_assignmentId: {
+        studentId: targetStudentId,
+        assignmentId,
       },
-    });
+    },
+  });
 
-    if (saved) {
-      let examMarkdown: string | null = null;
-      if (assignment.examContent) {
-        const examData = parseStoredExamData(assignment.examContent);
-        if (examData && examData.sections.length > 0) {
-          examMarkdown = sectionsToMarkdown(examData.sections);
-        }
+  if (saved) {
+    let examMarkdown: string | null = null;
+    if (assignment.examContent) {
+      const examData = parseStoredExamData(assignment.examContent);
+      if (examData && examData.sections.length > 0) {
+        examMarkdown = sectionsToMarkdown(examData.sections);
       }
-
-      return NextResponse.json({
-        title: assignment.title,
-        score: saved.score,
-        totalPoints: saved.totalPoints,
-        correctRate: saved.correctRate,
-        grade: saved.grade,
-        rank: saved.rank,
-        totalStudents: saved.totalStudents,
-        percentile: saved.percentile,
-        wrongQuestions: JSON.parse(saved.wrongQuestions || "[]"),
-        weakPattern: saved.weakPattern || "",
-        feedback: saved.feedback || "",
-        questionBreakdown: JSON.parse(saved.questionBreakdown || "[]"),
-        hasAgents: true,
-        cached: true,
-        examMarkdown,
-      });
     }
+
+    return NextResponse.json({
+      title: assignment.title,
+      score: saved.score,
+      totalPoints: saved.totalPoints,
+      correctRate: saved.correctRate,
+      grade: saved.grade,
+      rank: saved.rank,
+      totalStudents: saved.totalStudents,
+      percentile: saved.percentile,
+      wrongQuestions: JSON.parse(saved.wrongQuestions || "[]"),
+      weakPattern: saved.weakPattern || "",
+      feedback: saved.feedback || "",
+      questionBreakdown: JSON.parse(saved.questionBreakdown || "[]"),
+      hasAgents: true,
+      cached: true,
+      examMarkdown,
+    });
   }
 
   // Get the student's submission
@@ -255,8 +253,8 @@ export async function GET(
     examMarkdown,
   };
 
-  // Save analysis result for future access (only for students viewing own result)
-  if (!isAdmin && agentScores.length > 0) {
+  // 분석 결과 캐시 저장 (강사/학생 모두)
+  if (agentScores.length > 0) {
     try {
       await prisma.studentAnalysisResult.upsert({
         where: {

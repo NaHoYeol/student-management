@@ -13,12 +13,48 @@ interface AssignmentSummary {
   dueDate: string | null;
   category: string;
   examDate: string | null;
+  targetType: string;
+  targetClasses: string | null;
+  targetStudentIds: string | null;
   _count: { submissions: number };
+}
+
+interface StudentData {
+  id: string;
+  name: string | null;
+  email: string;
+  school: string | null;
+  grade: string | null;
+  classDay: string | null;
+  classTime: string | null;
+}
+
+function studentGroupLabel(s: StudentData): string {
+  const parts = [s.school, s.grade, s.classDay ? `${s.classDay}요일` : null, s.classTime].filter(Boolean);
+  return parts.length > 0 ? parts.join(" / ") : "미배정";
+}
+
+function getTargetedCount(a: AssignmentSummary, students: StudentData[]): number {
+  const targetType = a.targetType || "ALL";
+  if (targetType === "ALL") return students.length;
+  if (targetType === "CLASS" && a.targetClasses) {
+    try {
+      const classes: string[] = JSON.parse(a.targetClasses);
+      return students.filter((s) => classes.includes(studentGroupLabel(s))).length;
+    } catch { return students.length; }
+  }
+  if (targetType === "INDIVIDUAL" && a.targetStudentIds) {
+    try {
+      const ids: string[] = JSON.parse(a.targetStudentIds);
+      return ids.length;
+    } catch { return students.length; }
+  }
+  return students.length;
 }
 
 export default function AdminDashboard() {
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
-  const [studentCount, setStudentCount] = useState(0);
+  const [students, setStudents] = useState<StudentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
 
@@ -28,7 +64,7 @@ export default function AdminDashboard() {
       fetch("/api/admin/students").then((res) => res.json()),
     ]).then(([assignmentData, studentData]) => {
       setAssignments(assignmentData);
-      setStudentCount(Array.isArray(studentData) ? studentData.length : 0);
+      setStudents(Array.isArray(studentData) ? studentData : []);
       setLoading(false);
     });
   }, []);
@@ -74,7 +110,7 @@ export default function AdminDashboard() {
         </div>
         <div className="rounded-lg bg-white p-6 shadow-sm">
           <p className="text-sm text-black">등록 학생</p>
-          <p className="text-3xl font-bold">{studentCount}명</p>
+          <p className="text-3xl font-bold">{students.length}명</p>
         </div>
         <div className="rounded-lg bg-white p-6 shadow-sm">
           <p className="text-sm text-black">마감 초과 과제</p>
@@ -135,7 +171,8 @@ export default function AdminDashboard() {
               }
 
               return filtered.map((a) => {
-                const unsubmitted = Math.max(0, studentCount - a._count.submissions);
+                const targetedCount = getTargetedCount(a, students);
+                const unsubmitted = Math.max(0, targetedCount - a._count.submissions);
                 const isOverdue = a.dueDate && new Date(a.dueDate) < new Date();
                 const overdueDays = a.dueDate
                   ? Math.floor((Date.now() - new Date(a.dueDate).getTime()) / (1000 * 60 * 60 * 24))

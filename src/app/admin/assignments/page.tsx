@@ -80,6 +80,11 @@ interface AssignmentSummary {
   title: string;
   totalQuestions: number;
   createdAt: string;
+  dueDate: string | null;
+  category: string;
+  targetType: string;
+  targetClasses: string | null;
+  targetStudentIds: string | null;
   _count: { submissions: number };
 }
 
@@ -102,6 +107,7 @@ interface Assignment {
   questions: { questionNumber: number; correctAnswer: string; questionType: string; points: number }[];
   examContent?: string;
   dueDate?: string;
+  category?: string;
   targetType: string;
   targetClasses?: string;
   targetStudentIds?: string;
@@ -139,17 +145,38 @@ interface StudentAnalysisData {
 
 // ─── 월별 과제 목록 컴포넌트 ─────────────────────────────────
 
+function getTargetedCount(a: AssignmentSummary, students: StudentData[]): number {
+  const targetType = a.targetType || "ALL";
+  if (targetType === "ALL") return students.length;
+  if (targetType === "CLASS" && a.targetClasses) {
+    try {
+      const classes: string[] = JSON.parse(a.targetClasses);
+      return students.filter((s) => classes.includes(studentGroupLabel(s))).length;
+    } catch { return students.length; }
+  }
+  if (targetType === "INDIVIDUAL" && a.targetStudentIds) {
+    try {
+      const ids: string[] = JSON.parse(a.targetStudentIds);
+      return ids.length;
+    } catch { return students.length; }
+  }
+  return students.length;
+}
+
 function MonthlyAssignmentList() {
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
+  const [students, setStudents] = useState<StudentData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/assignments")
-      .then((res) => res.json())
-      .then((data) => {
-        setAssignments(data);
-        setLoading(false);
-      });
+    Promise.all([
+      fetch("/api/assignments").then((r) => r.json()),
+      fetch("/api/admin/students").then((r) => r.json()),
+    ]).then(([assignmentData, studentData]) => {
+      setAssignments(assignmentData);
+      setStudents(Array.isArray(studentData) ? studentData : []);
+      setLoading(false);
+    });
   }, []);
 
   // 월별 그룹핑
@@ -249,13 +276,23 @@ function MonthlyAssignmentList() {
                   <thead className="border-b bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 font-medium text-black">제목</th>
-                      <th className="px-4 py-3 font-medium text-black">문항 수</th>
-                      <th className="px-4 py-3 font-medium text-black">제출 수</th>
-                      <th className="px-4 py-3 font-medium text-black">등록일</th>
+                      <th className="px-4 py-3 font-medium text-black">유형</th>
+                      <th className="px-4 py-3 font-medium text-black">문항</th>
+                      <th className="px-4 py-3 font-medium text-black">제출</th>
+                      <th className="px-4 py-3 font-medium text-black">미제출</th>
+                      <th className="px-4 py-3 font-medium text-black">마감일</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {monthAssignments.map((a) => (
+                    {monthAssignments.map((a) => {
+                      const targetedCount = getTargetedCount(a, students);
+                      const unsubmitted = Math.max(0, targetedCount - a._count.submissions);
+                      const isOverdue = a.dueDate && new Date(a.dueDate) < new Date();
+                      const overdueDays = a.dueDate
+                        ? Math.floor((Date.now() - new Date(a.dueDate).getTime()) / (1000 * 60 * 60 * 24))
+                        : 0;
+
+                      return (
                       <tr key={a.id} className="border-b last:border-0 hover:bg-gray-50">
                         <td className="px-4 py-3">
                           <Link
@@ -265,13 +302,41 @@ function MonthlyAssignmentList() {
                             {a.title}
                           </Link>
                         </td>
-                        <td className="px-4 py-3">{a.totalQuestions}문항</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                            a.category === "OFFICIAL"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-gray-100 text-gray-600"
+                          }`}>
+                            {a.category === "OFFICIAL" ? "기출" : "사설"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">{a.totalQuestions}</td>
                         <td className="px-4 py-3">{a._count.submissions}명</td>
-                        <td className="px-4 py-3 text-black">
-                          {new Date(a.createdAt).toLocaleDateString("ko-KR")}
+                        <td className="px-4 py-3">
+                          {unsubmitted > 0 ? (
+                            <span className="font-medium text-red-600">{unsubmitted}명</span>
+                          ) : (
+                            <span className="text-green-600">전원</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {a.dueDate ? (
+                            <div>
+                              <span className={isOverdue ? "text-red-600 font-medium" : "text-black"}>
+                                {new Date(a.dueDate).toLocaleDateString("ko-KR")}
+                              </span>
+                              {isOverdue && overdueDays > 0 && unsubmitted > 0 && (
+                                <span className="ml-1 text-xs text-red-500">({overdueDays}일 초과)</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -318,6 +383,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [savingInfo, setSavingInfo] = useState(false);
   const [editDueDate, setEditDueDate] = useState("");
+  const [editCategory, setEditCategory] = useState<"PRIVATE" | "OFFICIAL">("PRIVATE");
 
   // 미제출 학생 관련
   const [unsubmitted, setUnsubmitted] = useState<StudentData[]>([]);
@@ -590,6 +656,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
     setEditDescription(assignment.description || "");
     setEditTargetType((assignment.targetType || "ALL") as "ALL" | "CLASS" | "INDIVIDUAL");
     setEditDueDate(assignment.dueDate ? new Date(assignment.dueDate).toISOString().split("T")[0] : "");
+    setEditCategory((assignment.category || "PRIVATE") as "PRIVATE" | "OFFICIAL");
 
     // 기존 반 배정 복원
     if (assignment.targetType === "CLASS" && assignment.targetClasses) {
@@ -660,6 +727,7 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
       description: editDescription,
       targetType: editTargetType,
       dueDate: editDueDate || null,
+      category: editCategory,
     };
     if (editTargetType === "CLASS") {
       payload.targetClasses = Array.from(editSelectedClasses);
@@ -753,6 +821,29 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
               rows={2}
               className="w-full rounded-lg border px-3 py-2 text-sm text-black focus:border-blue-500 focus:outline-none"
             />
+          </div>
+
+          {/* 유형 설정 */}
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-black">유형</label>
+            <div className="flex gap-2">
+              {([
+                { value: "PRIVATE", label: "사설" },
+                { value: "OFFICIAL", label: "평가원/교육청" },
+              ] as { value: typeof editCategory; label: string }[]).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setEditCategory(opt.value)}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium ${
+                    editCategory === opt.value
+                      ? "bg-blue-600 text-white"
+                      : "border border-gray-300 text-black hover:bg-gray-50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* 마감일 설정 */}

@@ -374,7 +374,7 @@ export default function StudentDetailPage() {
                                         : "bg-red-100 text-red-700"
                                     }`}
                                   >
-                                    {qs.questionNumber}번 {qs.correctRate}%
+                                    {qs.questionNumber}번 {qs.correctRate.toFixed(1)}%
                                   </span>
                                 ))}
                               </div>

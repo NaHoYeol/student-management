@@ -141,23 +141,7 @@ export async function GET(
     gradeInfo = estimateGrade(studentScore, agentScores);
   }
 
-  // Analyze wrong questions with correct rates
-  const wrongQuestions = submission.answers
-    .filter((a) => !a.isCorrect)
-    .map((a) => {
-      const q = assignment.questions.find((q) => q.questionNumber === a.questionNumber);
-      return {
-        questionNumber: a.questionNumber,
-        studentAnswer: a.studentAnswer,
-        correctAnswer: q?.correctAnswer ?? "",
-        correctRate: Math.round(questionCorrectRates.get(a.questionNumber) ?? 0),
-      };
-    });
-
-  // Detect weak patterns
-  const weakPattern = analyzeWeakPattern(wrongQuestions, assignment.questions.length);
-
-  // Prepare exam content question lookup for highlight questions
+  // Prepare exam content question lookup
   const examQuestionTexts = new Map<number, string>();
   if (assignment.examContent) {
     try {
@@ -167,13 +151,12 @@ export async function GET(
           for (const q of section.questions) {
             let text = q.text || "";
             if (section.passage) {
-              text = `[지문] ${section.passage.substring(0, 150)}... [문제] ${text}`;
+              text = `[지문] ${section.passage.substring(0, 300)}... [문제] ${text}`;
             }
             if (q.choices && q.choices.length > 0) {
               text += ` [선지] ${q.choices.join(" / ")}`;
             }
-            // Truncate to reasonable length
-            if (text.length > 400) text = text.substring(0, 400) + "...";
+            if (text.length > 600) text = text.substring(0, 600) + "...";
             examQuestionTexts.set(q.number, text);
           }
         }
@@ -182,6 +165,23 @@ export async function GET(
       // ignore parse errors
     }
   }
+
+  // Analyze wrong questions with correct rates + 실제 문제 텍스트
+  const wrongQuestions = submission.answers
+    .filter((a) => !a.isCorrect)
+    .map((a) => {
+      const q = assignment.questions.find((q) => q.questionNumber === a.questionNumber);
+      return {
+        questionNumber: a.questionNumber,
+        studentAnswer: a.studentAnswer,
+        correctAnswer: q?.correctAnswer ?? "",
+        correctRate: Math.round(questionCorrectRates.get(a.questionNumber) ?? 0),
+        questionText: examQuestionTexts.get(a.questionNumber) || "",
+      };
+    });
+
+  // Detect weak patterns
+  const weakPattern = analyzeWeakPattern(wrongQuestions, assignment.questions.length);
 
   // Correct questions sorted by difficulty (lowest correct rate = hardest)
   const correctQuestions = submission.answers
@@ -220,7 +220,6 @@ export async function GET(
     correctRate,
     wrongQuestions,
     weakPattern,
-    examContent: assignment.examContent || undefined,
     impressiveCorrects,
     criticalWrongs,
   });

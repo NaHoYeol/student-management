@@ -70,6 +70,11 @@ export async function PUT(
     }),
   ]);
 
+  // 재제출로 가중 정답률이 변하므로 해당 과제의 분석 캐시 무효화
+  await prisma.studentAnalysisResult.deleteMany({
+    where: { assignmentId: submission.assignmentId },
+  }).catch(() => {});
+
   const updated = await prisma.submission.findUnique({
     where: { id },
     include: { answers: { orderBy: { questionNumber: "asc" } } },

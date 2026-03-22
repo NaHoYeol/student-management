@@ -123,5 +123,10 @@ export async function POST(req: NextRequest) {
     include: { answers: true },
   });
 
+  // 새 제출로 가중 정답률이 변하므로 해당 과제의 분석 캐시 무효화
+  await prisma.studentAnalysisResult.deleteMany({
+    where: { assignmentId },
+  }).catch(() => {});
+
   return NextResponse.json(submission, { status: 201 });
 }

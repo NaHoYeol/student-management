@@ -171,6 +171,11 @@ export async function PUT(
     ]);
   }
 
+  // 정답 변경으로 채점이 바뀌었으므로 분석 캐시 무효화
+  await prisma.studentAnalysisResult.deleteMany({
+    where: { assignmentId: id },
+  }).catch(() => {});
+
   const assignment = await prisma.assignment.findUnique({
     where: { id },
     include: { questions: { orderBy: { questionNumber: "asc" } } },

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { estimateGrade } from "@/lib/agent-simulation";
 import { generateFeedback } from "@/lib/gpt-feedback";
 import { parseStoredExamData, sectionsToMarkdown } from "@/lib/exam-parser";
+import { computeWeightedQuestionRates } from "@/lib/statistics";
 
 // GET: Get individual student analysis for an assignment
 // Supports ?studentId=xxx for admin to view specific student
@@ -113,20 +114,18 @@ export async function GET(
   const totalPoints = submission.totalPoints ?? 0;
   const correctRate = totalPoints > 0 ? Math.round((studentScore / totalPoints) * 100) : 0;
 
-  // Compute per-question correct rates across ALL submissions
-  const questionCorrectRates = new Map<number, number>();
-  for (const q of assignment.questions) {
-    let correct = 0;
-    let total = 0;
-    for (const sub of allSubmissions) {
-      const ans = sub.answers.find((a) => a.questionNumber === q.questionNumber);
-      if (ans) {
-        total++;
-        if (ans.isCorrect) correct++;
-      }
-    }
-    questionCorrectRates.set(q.questionNumber, total > 0 ? (correct / total) * 100 : 0);
-  }
+  // 가중치 기반 문항별 정답률 (실제 학생 데이터 가중 반영)
+  const realSubs = allSubmissions.filter((s) => !s.isAgent);
+  const agentSubs = allSubmissions.filter((s) => s.isAgent);
+  const questionCorrectRates = computeWeightedQuestionRates(
+    assignment.questions,
+    allSubmissions.map((s) => ({
+      isAgent: s.isAgent,
+      answers: s.answers.map((a) => ({ questionNumber: a.questionNumber, isCorrect: a.isCorrect })),
+    })),
+    realSubs.length,
+    agentSubs.length
+  );
 
   // Estimate grade if agents exist
   let gradeInfo = { grade: 0, rank: 0, percentile: 0 };

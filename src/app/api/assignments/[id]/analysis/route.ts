@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computeAnalysis, computeGradeCutoffs } from "@/lib/statistics";
+import { computeAnalysis, computeGradeCutoffs, computeSubmissionWeights } from "@/lib/statistics";
 import { parseStoredExamData, sectionsToMarkdown } from "@/lib/exam-parser";
 
 // GET: Get analysis for an assignment
@@ -38,15 +38,19 @@ export async function GET(
     return NextResponse.json({ error: "Not published" }, { status: 403 });
   }
 
-  // 시뮬레이션 학생 포함하여 전체 통계 산출 (정답률, 평균, 등급 등 일관성 유지)
-  const statsSubmissions = assignment.submissions;
-
-  if (statsSubmissions.length === 0) {
+  if (assignment.submissions.length === 0) {
     return NextResponse.json({ error: "No submissions" }, { status: 400 });
   }
 
   const realSubmissions = assignment.submissions.filter((s) => !s.isAgent);
+  const agentSubmissions = assignment.submissions.filter((s) => s.isAgent);
   const agentOnly = !isStudent && realSubmissions.length === 0;
+
+  // 실제 학생 데이터에 가중치를 높여 시뮬레이션 보정
+  const { realWeight, agentWeight } = computeSubmissionWeights(
+    realSubmissions.length,
+    agentSubmissions.length
+  );
 
   const totalPoints =
     assignment.questions.reduce((s, q) => s + q.points, 0);
@@ -59,8 +63,9 @@ export async function GET(
 
   const analysis = computeAnalysis(
     questionInputs,
-    statsSubmissions.map((s) => ({
+    assignment.submissions.map((s) => ({
       score: s.score ?? 0,
+      weight: s.isAgent ? agentWeight : realWeight,
       answers: s.answers.map((a) => ({
         questionNumber: a.questionNumber,
         studentAnswer: String(a.studentAnswer),
@@ -71,7 +76,7 @@ export async function GET(
   );
 
   // 등급컷 산출 (전체 데이터 기반)
-  const allScores = statsSubmissions.map((s) => s.score ?? 0);
+  const allScores = assignment.submissions.map((s) => s.score ?? 0);
   analysis.gradeCutoffs = computeGradeCutoffs(allScores, totalPoints);
 
   let examMarkdown: string | null = null;

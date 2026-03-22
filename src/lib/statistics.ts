@@ -58,8 +58,9 @@ export interface AnalysisResult {
   gradeCutoffs?: GradeCutoff[];
 }
 
-interface SubInput {
+export interface SubInput {
   score: number;
+  weight?: number; // 가중치 (기본 1.0)
   answers: { questionNumber: number; studentAnswer: string; isCorrect: boolean }[];
 }
 
@@ -69,15 +70,52 @@ interface QInput {
   questionType?: string;
 }
 
-function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  if (sorted.length === 1) return sorted[0];
-  const idx = (p / 100) * (sorted.length - 1);
-  const lo = Math.floor(idx);
-  const hi = Math.ceil(idx);
-  if (lo === hi) return sorted[lo];
-  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+// ─── 가중치 계산 헬퍼 ─────────────────────────────────────────
+// 실제 학생 데이터에 높은 가중치를 부여하여 시뮬레이션 결과를 보정
+// - 실제 학생: 1인당 가중치 1.0
+// - 시뮬레이션: 전체 합산 가중치 = 실제학생수 × AGENT_RATIO
+//   (실제 학생이 0명이면 각 1.0)
+const AGENT_RATIO = 0.5;
+
+export function computeSubmissionWeights(
+  realCount: number,
+  agentCount: number
+): { realWeight: number; agentWeight: number } {
+  if (realCount === 0) return { realWeight: 1, agentWeight: 1 };
+  const agentTotalWeight = realCount * AGENT_RATIO;
+  return {
+    realWeight: 1,
+    agentWeight: agentCount > 0 ? agentTotalWeight / agentCount : 0,
+  };
 }
+
+// ─── 가중 백분위 ──────────────────────────────────────────────
+
+function weightedPercentile(
+  sortedEntries: { score: number; weight: number }[],
+  p: number
+): number {
+  if (sortedEntries.length === 0) return 0;
+  if (sortedEntries.length === 1) return sortedEntries[0].score;
+
+  const totalWeight = sortedEntries.reduce((s, e) => s + e.weight, 0);
+  const target = (p / 100) * totalWeight;
+
+  let cumWeight = 0;
+  for (let i = 0; i < sortedEntries.length; i++) {
+    const prevCum = cumWeight;
+    cumWeight += sortedEntries[i].weight;
+    if (cumWeight >= target) {
+      if (i === 0) return sortedEntries[0].score;
+      // 선형 보간
+      const frac = (target - prevCum) / sortedEntries[i].weight;
+      return sortedEntries[i - 1].score + frac * (sortedEntries[i].score - sortedEntries[i - 1].score);
+    }
+  }
+  return sortedEntries[sortedEntries.length - 1].score;
+}
+
+// ─── 메인 분석 함수 ──────────────────────────────────────────
 
 export function computeAnalysis(
   questions: QInput[],
@@ -85,79 +123,108 @@ export function computeAnalysis(
   totalPoints: number
 ): AnalysisResult {
   const n = submissions.length;
-  const scores = submissions.map((s) => s.score).sort((a, b) => a - b);
+  const weights = submissions.map((s) => s.weight ?? 1);
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
 
-  // 기초통계
-  const sum = scores.reduce((a, b) => a + b, 0);
-  const mean = n > 0 ? sum / n : 0;
-  const median = n > 0 ? percentile(scores, 50) : 0;
+  // 점수 + 가중치 정렬
+  const sortedEntries = submissions
+    .map((s, i) => ({ score: s.score, weight: weights[i] }))
+    .sort((a, b) => a.score - b.score);
+  const scores = sortedEntries.map((e) => e.score);
 
-  // 최빈값
+  // 가중 평균
+  const mean = totalWeight > 0
+    ? submissions.reduce((sum, s, i) => sum + s.score * weights[i], 0) / totalWeight
+    : 0;
+
+  // 가중 중앙값
+  const median = totalWeight > 0 ? weightedPercentile(sortedEntries, 50) : 0;
+
+  // 최빈값 (가중치 기반)
   const freq = new Map<number, number>();
-  for (const s of scores) freq.set(s, (freq.get(s) ?? 0) + 1);
+  for (let i = 0; i < submissions.length; i++) {
+    const s = submissions[i].score;
+    freq.set(s, (freq.get(s) ?? 0) + weights[i]);
+  }
   const maxFreq = Math.max(...freq.values(), 0);
   const mode = Array.from(freq.entries())
-    .filter(([, c]) => c === maxFreq)
+    .filter(([, c]) => Math.abs(c - maxFreq) < 0.001)
     .map(([v]) => v)
     .sort((a, b) => a - b);
 
-  // 표준편차
-  const variance = n > 1 ? scores.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1) : 0;
+  // 가중 표준편차
+  const variance = totalWeight > 0
+    ? submissions.reduce((sum, s, i) => sum + weights[i] * (s.score - mean) ** 2, 0) / totalWeight
+    : 0;
   const stdDev = Math.sqrt(variance);
 
   const min = scores[0] ?? 0;
   const max = scores[scores.length - 1] ?? 0;
-  const q1 = percentile(scores, 25);
-  const q3 = percentile(scores, 75);
+  const q1 = weightedPercentile(sortedEntries, 25);
+  const q3 = weightedPercentile(sortedEntries, 75);
 
-  // 왜도, 첨도
+  // 가중 왜도, 첨도
   let skewness = 0;
   let kurtosis = 0;
   if (n >= 3 && stdDev > 0) {
-    const m3 = scores.reduce((s, v) => s + ((v - mean) / stdDev) ** 3, 0) / n;
-    const m4 = scores.reduce((s, v) => s + ((v - mean) / stdDev) ** 4, 0) / n;
+    const m3 = submissions.reduce((s, sub, i) => s + weights[i] * ((sub.score - mean) / stdDev) ** 3, 0) / totalWeight;
+    const m4 = submissions.reduce((s, sub, i) => s + weights[i] * ((sub.score - mean) / stdDev) ** 4, 0) / totalWeight;
     skewness = m3;
-    kurtosis = m4 - 3; // 초과첨도
+    kurtosis = m4 - 3;
   }
 
-  // 점수 분포 (10구간)
+  // 가중 점수 분포 (10구간)
   const bandSize = totalPoints > 0 ? totalPoints / 10 : 10;
   const scoreBands: ScoreBand[] = [];
   for (let i = 0; i < 10; i++) {
     const bMin = Math.round(bandSize * i);
     const bMax = i === 9 ? totalPoints : Math.round(bandSize * (i + 1));
     const label = `${bMin}~${bMax}`;
-    const count = scores.filter((s) => {
-      if (i === 9) return s >= bMin && s <= bMax;
-      return s >= bMin && s < bMax;
-    }).length;
-    scoreBands.push({ label, min: bMin, max: bMax, count, rate: n > 0 ? (count / n) * 100 : 0 });
+    let bandWeight = 0;
+    for (let j = 0; j < submissions.length; j++) {
+      const s = submissions[j].score;
+      const inBand = i === 9 ? (s >= bMin && s <= bMax) : (s >= bMin && s < bMax);
+      if (inBand) bandWeight += weights[j];
+    }
+    scoreBands.push({
+      label,
+      min: bMin,
+      max: bMax,
+      count: Math.round(bandWeight),
+      rate: totalWeight > 0 ? (bandWeight / totalWeight) * 100 : 0,
+    });
   }
 
-  // 문항별 분석
+  // 가중 문항별 분석
   const questionStats: QuestionStat[] = questions.map((q) => {
-    const choiceCounts: [number, number, number, number, number] = [0, 0, 0, 0, 0];
-    let correct = 0;
+    const choiceWeights: [number, number, number, number, number] = [0, 0, 0, 0, 0];
+    let correctWeight = 0;
+    let questionTotalWeight = 0;
 
-    for (const sub of submissions) {
+    for (let i = 0; i < submissions.length; i++) {
+      const sub = submissions[i];
+      const w = weights[i];
       const ans = sub.answers.find((a) => a.questionNumber === q.questionNumber);
       if (ans) {
-        // 객관식 선택지 분포 (studentAnswer가 숫자인 경우만)
+        questionTotalWeight += w;
         const parsed = parseInt(ans.studentAnswer);
         if (!isNaN(parsed) && parsed >= 1 && parsed <= 5) {
-          choiceCounts[parsed - 1]++;
+          choiceWeights[parsed - 1] += w;
         }
-        if (ans.isCorrect) correct++;
+        if (ans.isCorrect) correctWeight += w;
       }
     }
 
-    const choiceRates = choiceCounts.map((c) => (n > 0 ? (c / n) * 100 : 0)) as [number, number, number, number, number];
+    const choiceCounts = choiceWeights.map((w) => Math.round(w)) as [number, number, number, number, number];
+    const choiceRates = choiceWeights.map((w) =>
+      questionTotalWeight > 0 ? (w / questionTotalWeight) * 100 : 0
+    ) as [number, number, number, number, number];
 
     return {
       questionNumber: q.questionNumber,
       correctAnswer: q.correctAnswer,
       questionType: q.questionType,
-      correctRate: n > 0 ? (correct / n) * 100 : 0,
+      correctRate: questionTotalWeight > 0 ? (correctWeight / questionTotalWeight) * 100 : 0,
       choiceCounts,
       choiceRates,
     };
@@ -190,7 +257,7 @@ export function computeAnalysis(
   };
 }
 
-// 에이전트 포함 전체 점수로 9등급 등급컷 산출
+// 에이전트 포함 전체 점수로 9등급 등급컷 산출 (가중치 미적용 — 모집단 시뮬레이션 목적)
 export function computeGradeCutoffs(allScores: number[], totalPoints: number): GradeCutoff[] {
   if (allScores.length === 0) return [];
   const sorted = [...allScores].sort((a, b) => b - a); // 내림차순
@@ -222,6 +289,34 @@ export function computeGradeCutoffs(allScores: number[], totalPoints: number): G
   }
 
   return cutoffs;
+}
+
+// ─── 가중 문항별 정답률 (개별 분석용) ─────────────────────────
+
+export function computeWeightedQuestionRates(
+  questions: { questionNumber: number }[],
+  submissions: { isAgent: boolean; answers: { questionNumber: number; isCorrect: boolean }[] }[],
+  realCount: number,
+  agentCount: number
+): Map<number, number> {
+  const { realWeight, agentWeight } = computeSubmissionWeights(realCount, agentCount);
+  const rates = new Map<number, number>();
+
+  for (const q of questions) {
+    let correctW = 0;
+    let totalW = 0;
+    for (const sub of submissions) {
+      const w = sub.isAgent ? agentWeight : realWeight;
+      const ans = sub.answers.find((a) => a.questionNumber === q.questionNumber);
+      if (ans) {
+        totalW += w;
+        if (ans.isCorrect) correctW += w;
+      }
+    }
+    rates.set(q.questionNumber, totalW > 0 ? (correctW / totalW) * 100 : 0);
+  }
+
+  return rates;
 }
 
 function round2(v: number): number {

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateMonthlyFeedback, type WeeklyAssignment } from "@/lib/gpt-feedback";
 import { parseStoredExamData, extractQuestionsByNumbers, type ExamSection } from "@/lib/exam-parser";
+import { computeSubmissionWeights } from "@/lib/statistics";
 
 // GET: 월 목록 + 각 월의 대상 학생 수 + 상태
 export async function GET() {
@@ -185,17 +186,22 @@ export async function POST(req: NextRequest) {
   const questionCorrectRates = new Map<string, number>();
   for (const aId of assignmentIds) {
     const subs = allSubmissionsForStats.filter((s) => s.assignmentId === aId);
+    const realCount = subs.filter((s) => !s.isAgent).length;
+    const agentCount = subs.filter((s) => s.isAgent).length;
+    const { realWeight, agentWeight } = computeSubmissionWeights(realCount, agentCount);
+
     const questionNumbers = new Set<number>();
     for (const sub of subs) {
       for (const ans of sub.answers) questionNumbers.add(ans.questionNumber);
     }
     for (const qn of questionNumbers) {
-      let correct = 0, total = 0;
+      let correctW = 0, totalW = 0;
       for (const sub of subs) {
+        const w = sub.isAgent ? agentWeight : realWeight;
         const ans = sub.answers.find((a) => a.questionNumber === qn);
-        if (ans) { total++; if (ans.isCorrect) correct++; }
+        if (ans) { totalW += w; if (ans.isCorrect) correctW += w; }
       }
-      questionCorrectRates.set(`${aId}:${qn}`, total > 0 ? (correct / total) * 100 : 0);
+      questionCorrectRates.set(`${aId}:${qn}`, totalW > 0 ? (correctW / totalW) * 100 : 0);
     }
   }
 

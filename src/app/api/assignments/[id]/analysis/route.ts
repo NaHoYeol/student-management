@@ -38,17 +38,14 @@ export async function GET(
     return NextResponse.json({ error: "Not published" }, { status: 403 });
   }
 
-  // Admin: prefer real students, fall back to all (including agents) if none
-  // Student: all submissions for distribution context
-  const realSubmissions = assignment.submissions.filter((s) => !s.isAgent);
-  const statsSubmissions = isStudent
-    ? assignment.submissions
-    : realSubmissions.length > 0 ? realSubmissions : assignment.submissions;
+  // 시뮬레이션 학생 포함하여 전체 통계 산출 (정답률, 평균, 등급 등 일관성 유지)
+  const statsSubmissions = assignment.submissions;
 
   if (statsSubmissions.length === 0) {
     return NextResponse.json({ error: "No submissions" }, { status: 400 });
   }
 
+  const realSubmissions = assignment.submissions.filter((s) => !s.isAgent);
   const agentOnly = !isStudent && realSubmissions.length === 0;
 
   const totalPoints =
@@ -73,17 +70,9 @@ export async function GET(
     totalPoints
   );
 
-  // 에이전트 포함 전체 점수로 등급컷 산출 (관리자용)
-  const agentSubmissions = assignment.submissions.filter((s) => s.isAgent);
-  if (!isStudent && agentSubmissions.length > 0) {
-    const allScores = assignment.submissions.map((s) => s.score ?? 0);
-    analysis.gradeCutoffs = computeGradeCutoffs(allScores, totalPoints);
-  }
-  // 학생용: 에이전트 포함 데이터로 등급컷 산출
-  if (isStudent && agentSubmissions.length > 0) {
-    const allScores = assignment.submissions.map((s) => s.score ?? 0);
-    analysis.gradeCutoffs = computeGradeCutoffs(allScores, totalPoints);
-  }
+  // 등급컷 산출 (전체 데이터 기반)
+  const allScores = statsSubmissions.map((s) => s.score ?? 0);
+  analysis.gradeCutoffs = computeGradeCutoffs(allScores, totalPoints);
 
   let examMarkdown: string | null = null;
   if (assignment.examContent) {

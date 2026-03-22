@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { estimateGrade } from "@/lib/agent-simulation";
 import { generateFeedback } from "@/lib/gpt-feedback";
-import { parseStoredExamData } from "@/lib/exam-parser";
+import { parseStoredExamData, sectionsToMarkdown } from "@/lib/exam-parser";
 
 // GET: Get individual student analysis for an assignment
 // Supports ?studentId=xxx for admin to view specific student
@@ -53,6 +53,14 @@ export async function GET(
     });
 
     if (saved) {
+      let examMarkdown: string | null = null;
+      if (assignment.examContent) {
+        const examData = parseStoredExamData(assignment.examContent);
+        if (examData && examData.sections.length > 0) {
+          examMarkdown = sectionsToMarkdown(examData.sections);
+        }
+      }
+
       return NextResponse.json({
         title: assignment.title,
         score: saved.score,
@@ -68,6 +76,7 @@ export async function GET(
         questionBreakdown: JSON.parse(saved.questionBreakdown || "[]"),
         hasAgents: true,
         cached: true,
+        examMarkdown,
       });
     }
   }
@@ -222,6 +231,14 @@ export async function GET(
     };
   });
 
+  let examMarkdown: string | null = null;
+  if (assignment.examContent) {
+    const examData = parseStoredExamData(assignment.examContent);
+    if (examData && examData.sections.length > 0) {
+      examMarkdown = sectionsToMarkdown(examData.sections);
+    }
+  }
+
   const result = {
     title: assignment.title,
     score: studentScore,
@@ -236,6 +253,7 @@ export async function GET(
     feedback,
     questionBreakdown,
     hasAgents: agentScores.length > 0,
+    examMarkdown,
   };
 
   // Save analysis result for future access (only for students viewing own result)

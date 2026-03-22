@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { ExamViewer } from "@/components/exam-viewer";
 
 interface QuestionDetail {
   questionNumber: number;
@@ -14,6 +15,7 @@ interface AssignmentDetail {
   title: string;
   totalQuestions: number;
   questions: QuestionDetail[];
+  examMarkdown?: string | null;
 }
 
 interface GradingResult {
@@ -235,6 +237,13 @@ function SubmitAnswerContent() {
         {isEditMode ? `${assignment.title} — ` : ""}
         {assignment.totalQuestions}문항 | 각 문항의 답을 입력해 주세요
       </p>
+
+      {/* 시험지 보기 */}
+      {assignment.examMarkdown && (
+        <div className="mb-4">
+          <ExamViewer markdown={assignment.examMarkdown} />
+        </div>
+      )}
 
       {/* 입력 모드 전환 (객관식만 있을 때) */}
       {!hasNonChoice && (

@@ -40,6 +40,9 @@ export default function NewAssignmentPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [category, setCategory] = useState<"OFFICIAL" | "PRIVATE">("PRIVATE");
+  const [examDate, setExamDate] = useState("");
   const [questionCount, setQuestionCount] = useState(20);
   const [questions, setQuestions] = useState<QuestionInput[]>([]);
   const [step, setStep] = useState<"info" | "answers">("info");
@@ -233,6 +236,9 @@ export default function NewAssignmentPage() {
     const payload: Record<string, unknown> = {
       title,
       description,
+      dueDate: dueDate || undefined,
+      category,
+      examDate: category === "OFFICIAL" && examDate ? examDate : undefined,
       questions,
       targetType,
     };
@@ -294,6 +300,63 @@ export default function NewAssignmentPage() {
               rows={3}
               className="w-full rounded-lg border px-3 py-2 text-sm text-black focus:border-blue-500 focus:outline-none"
             />
+          </div>
+
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-black">
+              과제 유형
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setCategory("OFFICIAL"); }}
+                className={`rounded-lg px-4 py-2 text-sm font-medium ${
+                  category === "OFFICIAL"
+                    ? "bg-blue-600 text-white"
+                    : "border border-gray-300 text-black hover:bg-gray-50"
+                }`}
+              >
+                평가원/교육청 기출
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCategory("PRIVATE"); setExamDate(""); }}
+                className={`rounded-lg px-4 py-2 text-sm font-medium ${
+                  category === "PRIVATE"
+                    ? "bg-blue-600 text-white"
+                    : "border border-gray-300 text-black hover:bg-gray-50"
+                }`}
+              >
+                사설
+              </button>
+            </div>
+            {category === "OFFICIAL" && (
+              <div className="mt-3">
+                <label className="mb-1 block text-xs font-medium text-black">
+                  모의고사 시행일
+                </label>
+                <input
+                  type="date"
+                  value={examDate}
+                  onChange={(e) => setExamDate(e.target.value)}
+                  className="w-48 rounded-lg border px-3 py-2 text-sm text-black focus:border-blue-500 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-500">예: 2024년 9월 모의고사 → 2024-09-04</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <label className="mb-1 block text-sm font-medium text-black">
+              마감일 (선택)
+            </label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-48 rounded-lg border px-3 py-2 text-sm text-black focus:border-blue-500 focus:outline-none"
+            />
+            <p className="mt-1 text-xs text-gray-500">마감일이 지나도 제출은 가능합니다.</p>
           </div>
 
           <div className="mb-6">

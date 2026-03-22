@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ExamViewer } from "@/components/exam-viewer";
+import type { AnalysisResult } from "@/lib/statistics";
 
 interface SubmissionDetail {
   id: string;
@@ -45,6 +47,7 @@ interface StudentAnalysis {
     correctRate: number;
   }[];
   hasAgents: boolean;
+  examMarkdown?: string | null;
 }
 
 type Options = Record<string, string[]>;
@@ -61,6 +64,7 @@ export default function StudentDetailPage() {
   // Analysis state
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [analysisData, setAnalysisData] = useState<StudentAnalysis | null>(null);
+  const [assignmentAnalysis, setAssignmentAnalysis] = useState<AnalysisResult | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
 
   // Edit state
@@ -118,16 +122,24 @@ export default function StudentDetailPage() {
     if (analysisId === assignmentId && analysisData) {
       setAnalysisId(null);
       setAnalysisData(null);
+      setAssignmentAnalysis(null);
       return;
     }
     setAnalysisId(assignmentId);
     setAnalysisLoading(true);
     setAnalysisData(null);
+    setAssignmentAnalysis(null);
     try {
-      const res = await fetch(`/api/assignments/${assignmentId}/student-analysis?studentId=${studentId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setAnalysisData(data);
+      const [studentRes, analysisRes] = await Promise.all([
+        fetch(`/api/assignments/${assignmentId}/student-analysis?studentId=${studentId}`),
+        fetch(`/api/assignments/${assignmentId}/analysis`),
+      ]);
+      if (studentRes.ok) {
+        setAnalysisData(await studentRes.json());
+      }
+      if (analysisRes.ok) {
+        const aData = await analysisRes.json();
+        setAssignmentAnalysis(aData.analysis);
       }
     } catch {
       // ignore
@@ -317,81 +329,140 @@ export default function StudentDetailPage() {
                     <p className="text-sm text-black">분석 중...</p>
                   ) : analysisData ? (
                     <div className="space-y-4">
-                      {/* Grade & Score Summary */}
-                      <div className="grid grid-cols-4 gap-3">
-                        <div className="rounded-lg bg-gray-50 p-3 text-center">
-                          <p className="text-xs text-black">점수</p>
-                          <p className="text-lg font-bold text-blue-600">
-                            {analysisData.score}/{analysisData.totalPoints}
+                      {/* 시험지 보기 */}
+                      {analysisData.examMarkdown && (
+                        <ExamViewer markdown={analysisData.examMarkdown} />
+                      )}
+
+                      {/* 과제별 전체 분석 */}
+                      {assignmentAnalysis && (
+                        <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+                          <p className="mb-3 text-sm font-semibold text-indigo-800">과제 전체 분석</p>
+                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            <div className="text-center">
+                              <p className="text-[10px] text-indigo-600">평균</p>
+                              <p className="text-sm font-bold text-indigo-800">{assignmentAnalysis.mean.toFixed(1)}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[10px] text-indigo-600">최고</p>
+                              <p className="text-sm font-bold text-indigo-800">{assignmentAnalysis.max}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[10px] text-indigo-600">최저</p>
+                              <p className="text-sm font-bold text-indigo-800">{assignmentAnalysis.min}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[10px] text-indigo-600">표준편차</p>
+                              <p className="text-sm font-bold text-indigo-800">{assignmentAnalysis.stdDev.toFixed(1)}</p>
+                            </div>
+                          </div>
+                          {/* 문항별 정답률 */}
+                          {assignmentAnalysis.questionStats && assignmentAnalysis.questionStats.length > 0 && (
+                            <div className="mt-3">
+                              <p className="mb-1 text-[10px] font-medium text-indigo-600">문항별 정답률</p>
+                              <div className="flex flex-wrap gap-1">
+                                {assignmentAnalysis.questionStats.map((qs) => (
+                                  <span
+                                    key={qs.questionNumber}
+                                    className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                                      qs.correctRate >= 80
+                                        ? "bg-green-100 text-green-700"
+                                        : qs.correctRate >= 60
+                                        ? "bg-blue-100 text-blue-700"
+                                        : qs.correctRate >= 40
+                                        ? "bg-yellow-100 text-yellow-700"
+                                        : "bg-red-100 text-red-700"
+                                    }`}
+                                  >
+                                    {qs.questionNumber}번 {qs.correctRate}%
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 학생 개인 AI 분석 */}
+                      <div className="rounded-lg border border-gray-200 p-4">
+                        <p className="mb-3 text-sm font-semibold text-black">학생 개인 분석</p>
+
+                        {/* Grade & Score Summary */}
+                        <div className="grid grid-cols-4 gap-3">
+                          <div className="rounded-lg bg-gray-50 p-3 text-center">
+                            <p className="text-xs text-black">점수</p>
+                            <p className="text-lg font-bold text-blue-600">
+                              {analysisData.score}/{analysisData.totalPoints}
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-gray-50 p-3 text-center">
+                            <p className="text-xs text-black">정답률</p>
+                            <p className="text-lg font-bold text-green-600">{analysisData.correctRate}%</p>
+                          </div>
+                          {analysisData.hasAgents && (
+                            <>
+                              <div className="rounded-lg bg-gray-50 p-3 text-center">
+                                <p className="text-xs text-black">추정 등급</p>
+                                <p className={`text-lg font-bold rounded px-2 py-0.5 ${gradeColors[analysisData.grade] || "text-black"}`}>
+                                  {analysisData.grade}등급
+                                </p>
+                              </div>
+                              <div className="rounded-lg bg-gray-50 p-3 text-center">
+                                <p className="text-xs text-black">백분위</p>
+                                <p className="text-lg font-bold text-purple-600">
+                                  상위 {(100 - analysisData.percentile).toFixed(1)}%
+                                </p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Weak Pattern */}
+                        {analysisData.weakPattern && (
+                          <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
+                            <p className="text-xs font-semibold text-amber-800 mb-1">취약 패턴</p>
+                            <p className="text-sm text-amber-700">{analysisData.weakPattern}</p>
+                          </div>
+                        )}
+
+                        {/* AI Feedback */}
+                        <div className="mt-3 rounded-lg bg-gray-50 p-4">
+                          <p className="text-xs font-semibold text-black mb-2">AI 선생님 코멘트</p>
+                          <p className="text-sm leading-relaxed text-black whitespace-pre-wrap">
+                            {analysisData.feedback}
                           </p>
                         </div>
-                        <div className="rounded-lg bg-gray-50 p-3 text-center">
-                          <p className="text-xs text-black">정답률</p>
-                          <p className="text-lg font-bold text-green-600">{analysisData.correctRate}%</p>
-                        </div>
-                        {analysisData.hasAgents && (
-                          <>
-                            <div className="rounded-lg bg-gray-50 p-3 text-center">
-                              <p className="text-xs text-black">추정 등급</p>
-                              <p className={`text-lg font-bold rounded px-2 py-0.5 ${gradeColors[analysisData.grade] || "text-black"}`}>
-                                {analysisData.grade}등급
-                              </p>
+
+                        {/* Wrong Questions */}
+                        {analysisData.wrongQuestions.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs font-semibold text-black mb-2">
+                              틀린 문항 ({analysisData.wrongQuestions.length}개)
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {analysisData.wrongQuestions.map((q) => (
+                                <span
+                                  key={q.questionNumber}
+                                  className={`inline-block rounded px-2 py-1 text-xs ${
+                                    q.correctRate >= 80
+                                      ? "bg-green-100 text-green-700"
+                                      : q.correctRate >= 60
+                                      ? "bg-blue-100 text-blue-700"
+                                      : q.correctRate >= 40
+                                      ? "bg-yellow-100 text-yellow-700"
+                                      : q.correctRate >= 20
+                                      ? "bg-orange-100 text-orange-700"
+                                      : "bg-red-100 text-red-700"
+                                  }`}
+                                  title={`정답률 ${q.correctRate}% | 내답 ${q.studentAnswer} / 정답 ${q.correctAnswer}`}
+                                >
+                                  {q.questionNumber}번 ({q.correctRate}%)
+                                </span>
+                              ))}
                             </div>
-                            <div className="rounded-lg bg-gray-50 p-3 text-center">
-                              <p className="text-xs text-black">백분위</p>
-                              <p className="text-lg font-bold text-purple-600">
-                                상위 {(100 - analysisData.percentile).toFixed(1)}%
-                              </p>
-                            </div>
-                          </>
+                          </div>
                         )}
                       </div>
-
-                      {/* Weak Pattern */}
-                      {analysisData.weakPattern && (
-                        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
-                          <p className="text-xs font-semibold text-amber-800 mb-1">취약 패턴</p>
-                          <p className="text-sm text-amber-700">{analysisData.weakPattern}</p>
-                        </div>
-                      )}
-
-                      {/* AI Feedback */}
-                      <div className="rounded-lg bg-gray-50 p-4">
-                        <p className="text-xs font-semibold text-black mb-2">AI 선생님 코멘트</p>
-                        <p className="text-sm leading-relaxed text-black whitespace-pre-wrap">
-                          {analysisData.feedback}
-                        </p>
-                      </div>
-
-                      {/* Wrong Questions */}
-                      {analysisData.wrongQuestions.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-black mb-2">
-                            틀린 문항 ({analysisData.wrongQuestions.length}개)
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {analysisData.wrongQuestions.map((q) => (
-                              <span
-                                key={q.questionNumber}
-                                className={`inline-block rounded px-2 py-1 text-xs ${
-                                  q.correctRate >= 80
-                                    ? "bg-green-100 text-green-700"
-                                    : q.correctRate >= 60
-                                    ? "bg-blue-100 text-blue-700"
-                                    : q.correctRate >= 40
-                                    ? "bg-yellow-100 text-yellow-700"
-                                    : q.correctRate >= 20
-                                    ? "bg-orange-100 text-orange-700"
-                                    : "bg-red-100 text-red-700"
-                                }`}
-                                title={`정답률 ${q.correctRate}% | 내답 ${q.studentAnswer} / 정답 ${q.correctAnswer}`}
-                              >
-                                {q.questionNumber}번 ({q.correctRate}%)
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <p className="text-sm text-black">분석 결과를 불러올 수 없습니다.</p>

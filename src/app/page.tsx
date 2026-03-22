@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
@@ -67,12 +68,10 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-black">
-          학생 과제 관리 시스템
-        </h1>
-        <p className="mt-3 text-lg text-black">
-          과제 제출, 자동 채점, 진척도 관리를 한 곳에서
+      <div className="flex flex-col items-center text-center">
+        <Image src="/aim-logo.png" alt="A.I.M" width={280} height={126} className="rounded-xl" priority />
+        <p className="mt-4 text-lg text-black">
+          학업 성취도 향상 관리
         </p>
       </div>
       <Link

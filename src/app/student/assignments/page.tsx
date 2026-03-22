@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+type CategoryFilter = "ALL" | "OFFICIAL" | "PRIVATE";
+
 interface AssignmentListItem {
   id: string;
   title: string;
   description: string | null;
   totalQuestions: number;
   createdAt: string;
+  dueDate: string | null;
+  category: string;
+  examDate: string | null;
   analysisPublished: boolean;
   createdBy: { name: string | null };
 }
@@ -25,6 +30,7 @@ export default function StudentAssignmentsPage() {
   const [assignments, setAssignments] = useState<AssignmentListItem[]>([]);
   const [submissionMap, setSubmissionMap] = useState<Map<string, SubmissionInfo>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
 
   useEffect(() => {
     Promise.all([
@@ -73,8 +79,43 @@ export default function StudentAssignmentsPage() {
         </div>
       </div>
 
+      {/* 필터 탭 */}
+      <div className="mb-3 flex gap-2">
+        {([
+          { value: "ALL", label: "전체 (등록일순)" },
+          { value: "OFFICIAL", label: "평가원/교육청" },
+          { value: "PRIVATE", label: "사설" },
+        ] as { value: CategoryFilter; label: string }[]).map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setCategoryFilter(tab.value)}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+              categoryFilter === tab.value
+                ? "bg-blue-600 text-white"
+                : "border border-gray-300 text-black hover:bg-gray-50"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div className="grid gap-3 sm:gap-4">
-        {assignments.map((a) => {
+        {(() => {
+          let filtered = categoryFilter === "ALL"
+            ? assignments
+            : assignments.filter((a) => a.category === categoryFilter);
+
+          if (categoryFilter === "OFFICIAL") {
+            filtered = [...filtered].sort((a, b) => {
+              const da = a.examDate ? new Date(a.examDate).getTime() : 0;
+              const db = b.examDate ? new Date(b.examDate).getTime() : 0;
+              return db - da;
+            });
+          }
+
+          return filtered;
+        })().map((a) => {
           const submission = submissionMap.get(a.id);
           const done = !!submission;
           const canResubmit = submission?.resubmitApproved === true;
@@ -92,9 +133,17 @@ export default function StudentAssignmentsPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold">{a.title}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{a.title}</h3>
+                        {a.category === "OFFICIAL" && (
+                          <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">기출</span>
+                        )}
+                      </div>
                       <p className="mt-1 text-xs text-black">
                         {a.totalQuestions}문항 | {a.createdBy.name || "강사"}
+                        {a.category === "OFFICIAL" && a.examDate && (
+                          <span className="ml-1">| 시행 {new Date(a.examDate).toLocaleDateString("ko-KR")}</span>
+                        )}
                       </p>
                     </div>
                     {/* 점수 표시 */}
@@ -129,13 +178,36 @@ export default function StudentAssignmentsPage() {
                   className="block p-4 sm:p-5 active:bg-gray-50"
                 >
                   <div className="mb-3">
-                    <h3 className="font-semibold">{a.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">{a.title}</h3>
+                      {a.category === "OFFICIAL" && (
+                        <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">기출</span>
+                      )}
+                    </div>
                     {a.description && (
                       <p className="mt-1 text-sm text-black">{a.description}</p>
                     )}
                     <p className="mt-1 text-xs text-black">
                       {a.totalQuestions}문항 | {a.createdBy.name || "강사"}
+                      {a.category === "OFFICIAL" && a.examDate && (
+                        <span className="ml-1">| 시행 {new Date(a.examDate).toLocaleDateString("ko-KR")}</span>
+                      )}
+                      {a.dueDate && (
+                        <span className="ml-1">
+                          | 마감 {new Date(a.dueDate).toLocaleDateString("ko-KR")}
+                        </span>
+                      )}
                     </p>
+                    {(() => {
+                      if (!a.dueDate) return null;
+                      const overdueDays = Math.floor((Date.now() - new Date(a.dueDate).getTime()) / (1000 * 60 * 60 * 24));
+                      if (overdueDays <= 0) return null;
+                      return (
+                        <p className="mt-1 text-xs font-medium text-red-600">
+                          마감일 {overdueDays}일 초과
+                        </p>
+                      );
+                    })()}
                   </div>
                   <span className="inline-block rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white">
                     풀기
@@ -167,11 +239,19 @@ export default function StudentAssignmentsPage() {
             </div>
           );
         })}
-        {assignments.length === 0 && (
-          <p className="py-12 text-center text-black">
-            현재 등록된 과제가 없습니다.
-          </p>
-        )}
+        {(() => {
+          const filtered = categoryFilter === "ALL"
+            ? assignments
+            : assignments.filter((a) => a.category === categoryFilter);
+          if (filtered.length > 0) return null;
+          return (
+            <p className="py-12 text-center text-black">
+              {categoryFilter === "ALL"
+                ? "현재 등록된 과제가 없습니다."
+                : `${categoryFilter === "OFFICIAL" ? "평가원/교육청" : "사설"} 과제가 없습니다.`}
+            </p>
+          );
+        })()}
       </div>
     </div>
   );

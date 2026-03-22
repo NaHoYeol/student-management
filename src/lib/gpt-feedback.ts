@@ -218,6 +218,187 @@ ${wrongQuestionsText || "없음 (전문항 정답)"}
   }
 }
 
+// ─── 월별 시계열 AI 분석 ────────────────────────────────────
+
+export interface WeeklyAssignment {
+  title: string;
+  dueDate: string; // ISO date string
+  correctRate: number;
+  score: number;
+  totalPoints: number;
+  grade: number | null;
+  wrongQuestions: {
+    questionNumber: number;
+    studentAnswer: string;
+    correctAnswer: string;
+    correctRate: number;
+  }[];
+  correctQuestions: {
+    questionNumber: number;
+    correctRate: number;
+  }[];
+  /** 틀린 문항 + 어려운 정답 문항만 추출한 텍스트 (전체 시험지가 아님) */
+  relevantQuestionsText?: string | null;
+}
+
+export interface MonthlyFeedbackInput {
+  studentName: string;
+  monthLabel: string; // "2025년 3월"
+  weeklyData: {
+    weekLabel: string; // "1주차 (3/5)"
+    assignments: WeeklyAssignment[];
+  }[];
+  overallCorrectRate: number;
+  overallGrade: number | null;
+  trend: { correctRate: number | null; grade: number | null };
+}
+
+export async function generateMonthlyFeedback(input: MonthlyFeedbackInput): Promise<string> {
+  const apiKey = await getApiKey();
+  if (!apiKey || apiKey === "x") {
+    return generateMonthlyFallbackFeedback(input);
+  }
+
+  try {
+    const openai = new OpenAI({ apiKey });
+
+    const systemPrompt = `[역할 및 페르소나]
+너는 학생들의 월별 시험 데이터를 시계열적으로 분석하는 20대 후반 남자 학원 선생님이야.
+말투는 무뚝뚝하고 담백해. 감정 표현을 줄이고 사실 위주로 말해. "~입니다", "~됩니다" 같은 딱딱한 존댓말을 써.
+"정말 대단해요!", "아쉬워요~", "화이팅!" 같은 과한 감탄이나 이모지, 느낌표 남발은 하지 마.
+하지만 내용 자체는 학생을 배려하고 있어야 해. 상처 주는 말은 안 하되, 필요한 말은 빠짐없이 한다.
+자존감을 깎는 표현(예: "기초가 없다", "공부를 안 했다")은 쓰지 마. 대신 "이 부분은 보완이 필요합니다" 식으로 건조하게 짚어.
+
+중요: 이 분석은 해당 월의 주차별 시험 결과를 시계열적으로 비교·분석하는 것이다. 단일 시험 분석이 아니라, 여러 시험에 걸친 패턴의 변화와 지속성을 분석하는 것이 핵심이다.
+
+[문항 난이도 기준 - 오답률 기준]
+오답률 60% 이상 (정답률 40% 미만) = 상 (어려운 문제)
+오답률 45~60% (정답률 40~55%) = 중상
+오답률 30~45% (정답률 55~70%) = 중
+오답률 15~30% (정답률 70~85%) = 중하
+오답률 0~15% (정답률 85% 이상) = 하 (쉬운 문제)
+
+[핵심 분석 원칙 - 시계열 관점]
+단순히 각 시험의 수치를 나열하지 마. 주차별 데이터의 변화 궤적에서 학생의 인지적 성장, 정체, 혹은 퇴보의 흐름을 읽어내야 한다.
+
+- 주차별 정답률 변화 → 단순 등락이 아니라, 상승/하강의 원인을 난이도·유형·문항 수준에서 추론
+- 반복 오답 패턴 분석 → 동일한 난이도 구간이나 유형에서 반복적으로 틀리는지, 아니면 개선되고 있는지 추적
+- 취약점 극복 여부 → 이전 주차에서 틀렸던 유형/난이도의 문항을 이후 주차에서 맞히고 있는지 확인
+- 새로운 취약점 발생 여부 → 이전엔 맞히던 유형을 최근에 틀리기 시작했는지 감지
+- 난이도 대응력 변화 → 상/중상/중/중하/하 각 구간에서의 정답률이 주차별로 어떻게 변하는지 추적
+
+[사고 과정 - 내부적으로 수행하되 출력하지 마]
+Step 1: 각 주차별 오답 문항을 난이도별로 분류하고, 주차 간 난이도별 오답 비율 변화를 파악.
+Step 2: 주차 간 오답 문항 번호와 유형을 대조하여, 동일 유형 반복 오답이 있는지 확인.
+  - 시험지 마크다운이 제공된 경우, 실제 문제 내용을 읽고 유형 분류(추론, 비판적 독해, 세부 정보 파악, 어법, 어휘 등)
+  - 유형 분류 후, 주차별로 같은 유형에서 반복적으로 틀리는지 추적
+Step 3: 이전 주차에서 틀렸던 난이도/유형의 문항을 이후 주차에서 맞힌 경우 → "극복" 패턴으로 기록
+Step 4: 이전 주차에서 맞히던 난이도/유형을 이후 주차에서 틀린 경우 → "퇴보" 패턴으로 기록
+Step 5: 전체 추이에서 정답률이 상승세인지, 하강세인지, 정체 상태인지 판단하고, 그 원인을 위 분석과 연결
+Step 6: 학생의 현재 등급대에 맞는 해석 프레임 설정 (기존 등급대별 프레임 동일 적용)
+
+[출력 형식]
+아래 목차를 지키되, 각 항목 안에서는 데이터가 말해주는 대로 자유롭게 써. 수치를 단순 나열하지 말고, 변화의 의미를 해석하여 서술해.
+
+### 1. 월간 성적 추이 총평
+(4~5문장. 해당 월의 주차별 정답률·등급 변화의 전체적인 흐름을 서술. 상승/하강/정체의 원인을 난이도 구간별 대응력 변화와 연결하여 해석. 전월 대비 변화가 있으면 언급.)
+
+### 2. 주차별 변화 분석
+(각 주차의 핵심 특징을 1~2문장씩 서술. 주차 간 정답률 변화의 원인을 구체적 문항 번호와 난이도를 들어 설명. 특정 주차에서 급등/급락이 있었다면 그 원인을 해당 시험의 문항 구성이나 학생의 오답 패턴에서 찾아 서술.)
+
+### 3. 반복 취약 패턴 진단
+(최소 2문단. 아래를 각각 소제목(**볼드**)으로 구분)
+
+- **지속되는 취약 유형**: 여러 주차에 걸쳐 반복적으로 틀리는 난이도 구간이나 문항 유형이 있는지 분석. 시험지 내용이 있으면 해당 문항들의 공통된 특성(예: 추론형, 세부 정보 파악형 등)을 구체적으로 짚어서 서술.
+
+- **극복된 취약점 vs 새로 발생한 취약점**: 이전 주차에서 틀렸던 유형을 이후 주차에서 맞힌 경우(극복)와, 이전엔 맞히던 유형을 최근에 틀리기 시작한 경우(신규 취약)를 구분하여 서술.
+
+### 4. 난이도 대응력 변화
+(2~3문장. 상/중상/중/중하/하 각 난이도 구간에서의 주차별 정답률 변화를 요약. 특히 변별력 구간(중/중상)에서의 대응력이 향상되고 있는지, 기본 문항(하/중하)에서의 안정성이 유지되고 있는지 분석.)`;
+
+    // 주차별 데이터 구성
+    let userPrompt = `[학생 데이터]
+학생 이름: ${input.studentName}
+분석 기간: ${input.monthLabel}
+월 평균 정답률: ${input.overallCorrectRate}%
+${input.overallGrade !== null ? `월 평균 추정 등급: ${input.overallGrade}등급` : ""}
+${input.trend.correctRate !== null ? `전월 대비 정답률 변화: ${input.trend.correctRate >= 0 ? "+" : ""}${input.trend.correctRate}%p` : ""}
+${input.trend.grade !== null ? `전월 대비 등급 변화: ${input.trend.grade > 0 ? "+" : ""}${input.trend.grade}등급` : ""}
+
+[주차별 상세 데이터]`;
+
+    for (const week of input.weeklyData) {
+      userPrompt += `\n\n--- ${week.weekLabel} ---`;
+      for (const a of week.assignments) {
+        userPrompt += `\n\n과제: ${a.title}`;
+        userPrompt += `\n마감일: ${a.dueDate}`;
+        userPrompt += `\n점수: ${a.score}/${a.totalPoints} (정답률 ${a.correctRate}%)`;
+        if (a.grade !== null) userPrompt += `\n추정 등급: ${a.grade}등급`;
+
+        // 틀린 문항
+        if (a.wrongQuestions.length > 0) {
+          userPrompt += `\n틀린 문항 (${a.wrongQuestions.length}개):`;
+          for (const q of a.wrongQuestions) {
+            userPrompt += `\n  ${q.questionNumber}번: 내 답 ${q.studentAnswer} / 정답 ${q.correctAnswer} / 전체 정답률 ${q.correctRate.toFixed(0)}% [난이도: ${getDifficultyLabel(q.correctRate)}]`;
+          }
+        } else {
+          userPrompt += `\n전문항 정답`;
+        }
+
+        // 잘 맞힌 어려운 문항 (정답률 55% 미만인데 맞힌 것)
+        const impressiveCorrects = a.correctQuestions.filter((q) => q.correctRate < 55);
+        if (impressiveCorrects.length > 0) {
+          userPrompt += `\n잘 맞힌 어려운 문항:`;
+          for (const q of impressiveCorrects.slice(0, 5)) {
+            userPrompt += `\n  ${q.questionNumber}번 (전체 정답률 ${q.correctRate.toFixed(0)}%, 난이도: ${getDifficultyLabel(q.correctRate)})`;
+          }
+        }
+
+        // 관련 문항 텍스트 (틀린 문항 + 어려운 정답 문항만)
+        if (a.relevantQuestionsText) {
+          userPrompt += `\n\n[관련 문항 원문]\n${a.relevantQuestionsText}`;
+        }
+      }
+    }
+
+    userPrompt += `\n\n위 주차별 데이터를 시계열적으로 분석하고 출력 형식에 맞춰 작성하시오. 각 주차 간 변화와 패턴의 지속/극복에 초점을 맞출 것. 학습 조언이나 미래 계획은 쓰지 말 것. 현재 데이터 분석에만 집중할 것.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 6000,
+      temperature: 0.7,
+    });
+
+    return response.choices[0]?.message?.content || generateMonthlyFallbackFeedback(input);
+  } catch {
+    return generateMonthlyFallbackFeedback(input);
+  }
+}
+
+function generateMonthlyFallbackFeedback(input: MonthlyFeedbackInput): string {
+  const lines: string[] = [];
+  lines.push(`${input.monthLabel} 월별 분석 결과입니다.`);
+  lines.push(`총 ${input.weeklyData.length}주차에 걸쳐 분석하였습니다.`);
+  lines.push(`월 평균 정답률은 ${input.overallCorrectRate}%입니다.`);
+  if (input.trend.correctRate !== null) {
+    lines.push(`전월 대비 ${input.trend.correctRate >= 0 ? "+" : ""}${input.trend.correctRate}%p 변화가 있었습니다.`);
+  }
+
+  // 주차별 정답률 추이
+  for (const week of input.weeklyData) {
+    const avgRate = Math.round(
+      week.assignments.reduce((s, a) => s + a.correctRate, 0) / week.assignments.length
+    );
+    lines.push(`${week.weekLabel}: 평균 정답률 ${avgRate}%`);
+  }
+
+  return lines.join("\n");
+}
+
 function generateFallbackFeedback(input: FeedbackInput): string {
   const { score, totalPoints, grade, wrongQuestions, correctRate } = input;
   const lines: string[] = [];

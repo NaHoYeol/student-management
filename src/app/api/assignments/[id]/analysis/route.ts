@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computeAnalysis, computeGradeCutoffs } from "@/lib/statistics";
+import { parseStoredExamData, sectionsToMarkdown } from "@/lib/exam-parser";
 
 // GET: Get analysis for an assignment
 export async function GET(
@@ -84,12 +85,21 @@ export async function GET(
     analysis.gradeCutoffs = computeGradeCutoffs(allScores, totalPoints);
   }
 
+  let examMarkdown: string | null = null;
+  if (assignment.examContent) {
+    const examData = parseStoredExamData(assignment.examContent);
+    if (examData && examData.sections.length > 0) {
+      examMarkdown = sectionsToMarkdown(examData.sections);
+    }
+  }
+
   return NextResponse.json({
     title: assignment.title,
     analysisPublished: assignment.analysisPublished,
     analysis,
     isStudent,
     agentOnly: agentOnly ?? false,
+    examMarkdown,
   });
 }
 

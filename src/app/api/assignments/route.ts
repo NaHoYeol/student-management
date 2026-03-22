@@ -17,7 +17,12 @@ export async function GET() {
   const assignments = await prisma.assignment.findMany({
     where: { isActive: true },
     include: {
-      _count: { select: { questions: true, submissions: true } },
+      _count: {
+        select: {
+          questions: true,
+          submissions: { where: { isAgent: false } },
+        },
+      },
       createdBy: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -81,13 +86,16 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { title, description, questions, targetType, targetClasses, targetStudentIds } = body as {
+  const { title, description, questions, targetType, targetClasses, targetStudentIds, dueDate, category, examDate } = body as {
     title: string;
     description?: string;
     questions: { questionNumber: number; correctAnswer: string; questionType?: string; points?: number }[];
     targetType?: string;
     targetClasses?: string[];
     targetStudentIds?: string[];
+    dueDate?: string;
+    category?: string;
+    examDate?: string;
   };
 
   if (!title || !questions || questions.length === 0) {
@@ -100,6 +108,9 @@ export async function POST(req: NextRequest) {
       description,
       totalQuestions: questions.length,
       createdById: session.user.id,
+      dueDate: dueDate ? new Date(dueDate) : null,
+      category: category || "PRIVATE",
+      examDate: examDate ? new Date(examDate) : null,
       targetType: targetType || "ALL",
       targetClasses: targetClasses ? JSON.stringify(targetClasses) : null,
       targetStudentIds: targetStudentIds ? JSON.stringify(targetStudentIds) : null,

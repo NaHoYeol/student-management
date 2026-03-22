@@ -101,6 +101,7 @@ interface Assignment {
   totalQuestions: number;
   questions: { questionNumber: number; correctAnswer: string; questionType: string; points: number }[];
   examContent?: string;
+  dueDate?: string;
   targetType: string;
   targetClasses?: string;
   targetStudentIds?: string;
@@ -1219,6 +1220,15 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
           <div className="mt-4">
             <h3 className="mb-2 text-sm font-semibold text-red-600">
               미제출 ({unsubmitted.length}명)
+              {assignment?.dueDate && (() => {
+                const overdueDays = Math.floor((Date.now() - new Date(assignment.dueDate!).getTime()) / (1000 * 60 * 60 * 24));
+                if (overdueDays <= 0) return null;
+                return (
+                  <span className="ml-2 text-xs font-normal text-red-500">
+                    마감 {overdueDays}일 초과
+                  </span>
+                );
+              })()}
             </h3>
             <div className="space-y-2">
               {unsubmitted.map((s) => (
@@ -1231,6 +1241,10 @@ function AssignmentDetail({ assignmentId }: { assignmentId: string }) {
                   </div>
                   <span className="rounded-full bg-red-100 px-3 py-0.5 text-xs font-medium text-red-600">
                     미제출
+                    {assignment?.dueDate && (() => {
+                      const overdueDays = Math.floor((Date.now() - new Date(assignment.dueDate!).getTime()) / (1000 * 60 * 60 * 24));
+                      return overdueDays > 0 ? ` (${overdueDays}일)` : "";
+                    })()}
                   </span>
                 </div>
               ))}

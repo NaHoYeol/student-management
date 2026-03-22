@@ -84,6 +84,9 @@ model Assignment {
   isActive          Boolean @default(true)
   analysisPublished Boolean @default(false)
   examContent       String? @db.Text
+  dueDate           DateTime?
+  category          String  @default("PRIVATE") // "OFFICIAL" (평가원/교육청) | "PRIVATE" (사설)
+  examDate          DateTime? // 평가원/교육청 모의고사 시행일
 
   targetType       String  @default("ALL")
   targetClasses    String? @db.Text
@@ -181,6 +184,31 @@ model StudentAnalysisResult {
   updatedAt DateTime @updatedAt
 
   @@unique([studentId, assignmentId])
+}
+
+model MonthlyReport {
+  id          String   @id @default(cuid())
+  month       String   @unique // "2025-03"
+  status      String   @default("PENDING") // PENDING, ANALYZED, PUBLISHED
+  analyzedAt  DateTime?
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  students MonthlyReportStudent[]
+}
+
+model MonthlyReportStudent {
+  id              String @id @default(cuid())
+  monthlyReportId String
+  studentId       String
+  studentName     String?
+  analysisData    Json
+  createdAt       DateTime @default(now())
+
+  monthlyReport MonthlyReport @relation(fields: [monthlyReportId], references: [id], onDelete: Cascade)
+
+  @@unique([monthlyReportId, studentId])
 }
 
 model ParentLink {

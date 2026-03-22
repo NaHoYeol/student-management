@@ -91,6 +91,47 @@ export function sectionsToMarkdown(sections: ExamSection[]): string {
   return parts.join("\n").trim();
 }
 
+// ─── 특정 문항만 추출 (토큰 절약용) ──────────────────────────
+
+/** 특정 문항 번호들에 해당하는 문항만 추출하여 마크다운으로 변환 */
+export function extractQuestionsByNumbers(
+  sections: ExamSection[],
+  questionNumbers: number[]
+): string {
+  if (questionNumbers.length === 0) return "";
+  const numSet = new Set(questionNumbers);
+  const parts: string[] = [];
+
+  for (const section of sections) {
+    // 이 섹션에 해당 문항이 있는지 확인
+    const matchedQuestions = section.questions.filter((q) => numSet.has(q.number));
+    if (matchedQuestions.length === 0) continue;
+
+    // 지문이 있으면 포함 (관련 문항의 맥락 이해에 필요)
+    if (section.passage) {
+      if (section.header) {
+        parts.push(`> ${section.header}`);
+      }
+      parts.push(section.passage);
+      parts.push("");
+    }
+
+    // 해당 문항만 포함
+    for (const q of matchedQuestions) {
+      parts.push(`${q.number}번. ${q.text}`);
+      if (q.condition) {
+        parts.push(`<보기> ${q.condition}`);
+      }
+      if (q.choices && q.choices.length > 0) {
+        parts.push(q.choices.join(" / "));
+      }
+      parts.push("");
+    }
+  }
+
+  return parts.join("\n").trim();
+}
+
 // ─── 하위 호환: 이전 processExamContent 유지 ─────────────────
 
 /** (레거시) 텍스트 기반 파싱 — 새 코드에서는 사용하지 않음 */

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 interface Profile {
   name: string | null;
@@ -91,6 +92,7 @@ function SelectOrInput({
 }
 
 export default function ProfilePage() {
+  const { update: updateSession } = useSession();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [options, setOptions] = useState<Options>({ school: [], grade: [], classDay: [], classTime: [] });
   const [instructors, setInstructors] = useState<Instructor[]>([]);
@@ -134,6 +136,7 @@ export default function ProfilePage() {
       const data = await res.json();
       setProfile(data);
       setSaved(true);
+      await updateSession();
       setTimeout(() => setSaved(false), 2000);
     }
     setSaving(false);

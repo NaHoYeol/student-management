@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import Image from "next/image";
 
 type RoleOption = "ADMIN" | "STUDENT" | "PARENT";
 
@@ -24,6 +25,9 @@ export default function SignInPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
+        <div className="mb-4 flex justify-center">
+          <Image src="/aim-logo.png" alt="A.I.M" width={160} height={72} className="rounded-lg" priority />
+        </div>
         <h1 className="mb-2 text-center text-2xl font-bold text-black">
           로그인
         </h1>

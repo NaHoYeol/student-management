@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
+import Image from "next/image";
 
 export function Nav() {
   const { data: session } = useSession();
@@ -18,6 +19,7 @@ export function Nav() {
     ? [
         { href: "/admin/assignments", label: "과제 관리" },
         { href: "/admin/students", label: "학생 관리" },
+        { href: "/admin/monthly", label: "월별 성취도" },
         { href: "/admin/parents", label: "학부모 관리" },
         { href: "/admin/class-options", label: "반 편성" },
         { href: "/admin/settings", label: "설정" },
@@ -29,6 +31,7 @@ export function Nav() {
       ]
     : [
         { href: "/student/assignments", label: "과제 목록" },
+        { href: "/student/monthly", label: "월별 성취도" },
         { href: "/student/profile", label: "내 정보" },
       ];
 
@@ -44,8 +47,8 @@ export function Nav() {
     <nav className="border-b bg-white px-4 py-3 sm:px-6">
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         {/* 로고 */}
-        <Link href={homeHref} className="text-base font-bold text-blue-600 sm:text-lg">
-          학생 관리
+        <Link href={homeHref} className="flex items-center gap-2">
+          <Image src="/aim-logo.png" alt="A.I.M" width={80} height={36} className="h-8 w-auto rounded" />
         </Link>
 
         {/* 데스크탑 메뉴 */}

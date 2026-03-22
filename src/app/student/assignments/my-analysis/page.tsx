@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ExamViewer } from "@/components/exam-viewer";
 
 interface StudentAnalysis {
   title: string;
@@ -26,6 +27,7 @@ interface StudentAnalysis {
   }[];
   hasAgents: boolean;
   cached?: boolean;
+  examMarkdown?: string | null;
 }
 
 function MyAnalysisContent() {
@@ -209,6 +211,13 @@ function MyAnalysisContent() {
           ))}
         </div>
       </div>
+
+      {/* 시험지 보기 */}
+      {data.examMarkdown && (
+        <div className="mb-6">
+          <ExamViewer markdown={data.examMarkdown} />
+        </div>
+      )}
 
       {/* 틀린 문항 목록 */}
       {data.wrongQuestions.length > 0 && (

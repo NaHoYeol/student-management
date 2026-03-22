@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AnalysisReport } from "@/components/analysis-report";
+import { ExamViewer } from "@/components/exam-viewer";
 import type { AnalysisResult } from "@/lib/statistics";
 
 function AnalysisContent() {
@@ -12,6 +13,7 @@ function AnalysisContent() {
 
   const [title, setTitle] = useState("");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [examMarkdown, setExamMarkdown] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -28,6 +30,7 @@ function AnalysisContent() {
       .then((data) => {
         setTitle(data.title);
         setAnalysis(data.analysis);
+        setExamMarkdown(data.examMarkdown || null);
         setLoading(false);
       })
       .catch(async (r) => {
@@ -91,6 +94,11 @@ function AnalysisContent() {
           PDF 다운로드
         </button>
       </div>
+      {examMarkdown && (
+        <div className="mb-6">
+          <ExamViewer markdown={examMarkdown} />
+        </div>
+      )}
       <AnalysisReport title={title} analysis={analysis} hideCount />
     </div>
   );

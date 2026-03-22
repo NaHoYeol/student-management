@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { gradeSubmission } from "@/lib/grading";
+import { parseStoredExamData, sectionsToMarkdown } from "@/lib/exam-parser";
 
 // GET: Get single assignment details
 export async function GET(
@@ -29,8 +30,18 @@ export async function GET(
 
   // Students should not see correct answers
   if (session.user.role === "STUDENT") {
+    let examMarkdown: string | null = null;
+    if (assignment.examContent) {
+      const examData = parseStoredExamData(assignment.examContent);
+      if (examData && examData.sections.length > 0) {
+        examMarkdown = sectionsToMarkdown(examData.sections);
+      }
+    }
+
     const sanitized = {
       ...assignment,
+      examContent: undefined,
+      examMarkdown,
       questions: assignment.questions.map((q) => ({
         id: q.id,
         questionNumber: q.questionNumber,
@@ -56,19 +67,25 @@ export async function PUT(
 
   const { id } = await params;
   const body = await req.json();
-  const { questions, title, description, targetType, targetClasses, targetStudentIds } = body as {
+  const { questions, title, description, targetType, targetClasses, targetStudentIds, dueDate, category, examDate } = body as {
     questions?: { questionNumber: number; correctAnswer: string; questionType?: string; points?: number }[];
     title?: string;
     description?: string;
     targetType?: string;
     targetClasses?: string[];
     targetStudentIds?: string[];
+    dueDate?: string | null;
+    category?: string;
+    examDate?: string | null;
   };
 
   // Update assignment info (title, description, target) if provided
   const infoUpdate: Record<string, unknown> = {};
   if (title !== undefined) infoUpdate.title = title;
   if (description !== undefined) infoUpdate.description = description;
+  if (dueDate !== undefined) infoUpdate.dueDate = dueDate ? new Date(dueDate) : null;
+  if (category !== undefined) infoUpdate.category = category;
+  if (examDate !== undefined) infoUpdate.examDate = examDate ? new Date(examDate) : null;
   if (targetType !== undefined) {
     infoUpdate.targetType = targetType;
     if (targetType === "CLASS") {

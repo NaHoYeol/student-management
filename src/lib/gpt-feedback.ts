@@ -240,9 +240,10 @@ export interface WeeklyAssignment {
     questionNumber: number;
     correctRate: number;
   }[];
-  /** 틀린 문항 + 어려운 정답 문항만 추출한 텍스트 (전체 시험지가 아님) */
-  relevantQuestionsText?: string | null;
 }
+
+/** 과제 제목 + 문항 번호 → 문항 텍스트(지문·문제·선지) 조회 콜백 */
+export type QuestionLookupFn = (assignmentTitle: string, questionNumbers: number[]) => string | null;
 
 export interface MonthlyFeedbackInput {
   studentName: string;
@@ -254,6 +255,8 @@ export interface MonthlyFeedbackInput {
   overallCorrectRate: number;
   overallGrade: number | null;
   trend: { correctRate: number | null; grade: number | null };
+  /** RAG: GPT가 tool call로 문항 내용을 조회할 때 사용 */
+  questionLookup?: QuestionLookupFn;
 }
 
 export async function generateMonthlyFeedback(input: MonthlyFeedbackInput): Promise<string> {
@@ -274,6 +277,8 @@ export async function generateMonthlyFeedback(input: MonthlyFeedbackInput): Prom
 
 중요: 이 분석은 해당 월의 주차별 시험 결과를 시계열적으로 비교·분석하는 것이다. 단일 시험 분석이 아니라, 여러 시험에 걸친 패턴의 변화와 지속성을 분석하는 것이 핵심이다.
 
+중요: 분석에서 구체적 문항을 언급하고 싶을 때는 반드시 lookup_exam_questions 도구를 호출하여 실제 문항 내용(지문, 문제, 선지)을 확인한 후 인용하라. 문항 내용을 추측하거나 일반적 표현으로 대체하지 마. 도구를 호출하면 해당 과제의 실제 시험지 내용을 받을 수 있다.
+
 [문항 난이도 기준 - 오답률 기준]
 오답률 60% 이상 (정답률 40% 미만) = 상 (어려운 문제)
 오답률 45~60% (정답률 40~55%) = 중상
@@ -292,34 +297,33 @@ export async function generateMonthlyFeedback(input: MonthlyFeedbackInput): Prom
 
 [사고 과정 - 내부적으로 수행하되 출력하지 마]
 Step 1: 각 주차별 오답 문항을 난이도별로 분류하고, 주차 간 난이도별 오답 비율 변화를 파악.
-Step 2: 주차 간 오답 문항 번호와 유형을 대조하여, 동일 유형 반복 오답이 있는지 확인.
-  - 시험지 마크다운이 제공된 경우, 실제 문제 내용을 읽고 유형 분류(추론, 비판적 독해, 세부 정보 파악, 어법, 어휘 등)
-  - 유형 분류 후, 주차별로 같은 유형에서 반복적으로 틀리는지 추적
-Step 3: 이전 주차에서 틀렸던 난이도/유형의 문항을 이후 주차에서 맞힌 경우 → "극복" 패턴으로 기록
-Step 4: 이전 주차에서 맞히던 난이도/유형을 이후 주차에서 틀린 경우 → "퇴보" 패턴으로 기록
-Step 5: 전체 추이에서 정답률이 상승세인지, 하강세인지, 정체 상태인지 판단하고, 그 원인을 위 분석과 연결
-Step 6: 학생의 현재 등급대에 맞는 해석 프레임 설정 (기존 등급대별 프레임 동일 적용)
+Step 2: 분석에 구체적으로 인용할 핵심 문항들(난이도 높은 오답, 반복 오답, 잘 맞힌 어려운 문항 등)을 선별하고 lookup_exam_questions를 호출하여 실제 내용을 확인.
+Step 3: 주차 간 오답 문항의 실제 내용을 비교하여, 동일 유형(추론, 비판적 독해, 세부 정보 파악, 어법, 어휘 등) 반복 오답이 있는지 확인.
+Step 4: 이전 주차에서 틀렸던 난이도/유형의 문항을 이후 주차에서 맞힌 경우 → "극복" 패턴으로 기록
+Step 5: 이전 주차에서 맞히던 난이도/유형을 이후 주차에서 틀린 경우 → "퇴보" 패턴으로 기록
+Step 6: 전체 추이에서 정답률이 상승세인지, 하강세인지, 정체 상태인지 판단하고, 그 원인을 위 분석과 연결
+Step 7: 학생의 현재 등급대에 맞는 해석 프레임 설정 (기존 등급대별 프레임 동일 적용)
 
 [출력 형식]
-아래 목차를 지키되, 각 항목 안에서는 데이터가 말해주는 대로 자유롭게 써. 수치를 단순 나열하지 말고, 변화의 의미를 해석하여 서술해.
+아래 목차를 지키되, 각 항목 안에서는 데이터가 말해주는 대로 자유롭게 써. 수치를 단순 나열하지 말고, 변화의 의미를 해석하여 서술해. 문항을 언급할 때는 반드시 도구로 확인한 실제 내용을 구체적으로 인용하라.
 
 ### 1. 월간 성적 추이 총평
 (4~5문장. 해당 월의 주차별 정답률·등급 변화의 전체적인 흐름을 서술. 상승/하강/정체의 원인을 난이도 구간별 대응력 변화와 연결하여 해석. 전월 대비 변화가 있으면 언급.)
 
 ### 2. 주차별 변화 분석
-(각 주차의 핵심 특징을 1~2문장씩 서술. 주차 간 정답률 변화의 원인을 구체적 문항 번호와 난이도를 들어 설명. 특정 주차에서 급등/급락이 있었다면 그 원인을 해당 시험의 문항 구성이나 학생의 오답 패턴에서 찾아 서술.)
+(각 주차의 핵심 특징을 1~2문장씩 서술. 주차 간 정답률 변화의 원인을 구체적 문항 번호와 난이도를 들어 설명. 특정 주차에서 급등/급락이 있었다면 그 원인을 해당 시험의 문항 구성이나 학생의 오답 패턴에서 찾아 서술. 핵심 문항은 실제 내용을 인용할 것.)
 
 ### 3. 반복 취약 패턴 진단
 (최소 2문단. 아래를 각각 소제목(**볼드**)으로 구분)
 
-- **지속되는 취약 유형**: 여러 주차에 걸쳐 반복적으로 틀리는 난이도 구간이나 문항 유형이 있는지 분석. 시험지 내용이 있으면 해당 문항들의 공통된 특성(예: 추론형, 세부 정보 파악형 등)을 구체적으로 짚어서 서술.
+- **지속되는 취약 유형**: 여러 주차에 걸쳐 반복적으로 틀리는 난이도 구간이나 문항 유형이 있는지 분석. 해당 문항들의 실제 내용을 도구로 확인하여 공통된 특성(예: 추론형, 세부 정보 파악형 등)을 구체적으로 짚어서 서술.
 
 - **극복된 취약점 vs 새로 발생한 취약점**: 이전 주차에서 틀렸던 유형을 이후 주차에서 맞힌 경우(극복)와, 이전엔 맞히던 유형을 최근에 틀리기 시작한 경우(신규 취약)를 구분하여 서술.
 
 ### 4. 난이도 대응력 변화
 (2~3문장. 상/중상/중/중하/하 각 난이도 구간에서의 주차별 정답률 변화를 요약. 특히 변별력 구간(중/중상)에서의 대응력이 향상되고 있는지, 기본 문항(하/중하)에서의 안정성이 유지되고 있는지 분석.)`;
 
-    // 주차별 데이터 구성
+    // 주차별 데이터 구성 (문항 텍스트 제외 — GPT가 필요 시 tool call로 조회)
     let userPrompt = `[학생 데이터]
 학생 이름: ${input.studentName}
 분석 기간: ${input.monthLabel}
@@ -356,27 +360,99 @@ ${input.trend.grade !== null ? `전월 대비 등급 변화: ${input.trend.grade
             userPrompt += `\n  ${q.questionNumber}번 (전체 정답률 ${q.correctRate.toFixed(0)}%, 난이도: ${getDifficultyLabel(q.correctRate)})`;
           }
         }
+      }
+    }
 
-        // 관련 문항 텍스트 (틀린 문항 + 어려운 정답 문항만)
-        if (a.relevantQuestionsText) {
-          userPrompt += `\n\n[관련 문항 원문]\n${a.relevantQuestionsText}`;
+    userPrompt += `\n\n위 주차별 데이터를 시계열적으로 분석하고 출력 형식에 맞춰 작성하시오. 구체적 문항을 인용하려면 반드시 lookup_exam_questions 도구를 먼저 호출하여 실제 내용을 확인할 것. 학습 조언이나 미래 계획은 쓰지 말 것. 현재 데이터 분석에만 집중할 것.`;
+
+    // Tool definition for RAG
+    const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = input.questionLookup ? [{
+      type: "function" as const,
+      function: {
+        name: "lookup_exam_questions",
+        description: "시험 문항의 실제 내용(지문, 문제, 선지)을 조회합니다. 분석에서 구체적 문항을 인용하고 싶을 때 호출하세요.",
+        parameters: {
+          type: "object",
+          properties: {
+            queries: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  assignmentTitle: { type: "string", description: "과제 제목 (정확히 일치해야 함)" },
+                  questionNumbers: { type: "array", items: { type: "number" }, description: "조회할 문항 번호 목록" },
+                },
+                required: ["assignmentTitle", "questionNumbers"],
+              },
+              description: "과제별 조회할 문항 목록",
+            },
+          },
+          required: ["queries"],
+        },
+      },
+    }] : [];
+
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ];
+
+    // Function calling loop (최대 3회 tool call 허용)
+    const MAX_TOOL_ROUNDS = 3;
+    for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+        max_tokens: 6000,
+        temperature: 0.7,
+        ...(tools.length > 0 && round < MAX_TOOL_ROUNDS ? { tools, tool_choice: round === 0 ? "auto" : "auto" } : {}),
+      });
+
+      const choice = response.choices[0];
+      if (!choice) break;
+
+      // 최종 텍스트 응답
+      if (choice.finish_reason === "stop" || !choice.message.tool_calls?.length) {
+        return choice.message.content || generateMonthlyFallbackFeedback(input);
+      }
+
+      // Tool calls → lookup questions
+      messages.push(choice.message);
+      for (const tc of choice.message.tool_calls) {
+        if (tc.type !== "function" || !("function" in tc)) continue;
+        const fn = tc as { id: string; type: "function"; function: { name: string; arguments: string } };
+        if (fn.function.name === "lookup_exam_questions" && input.questionLookup) {
+          try {
+            const args = JSON.parse(fn.function.arguments) as {
+              queries: { assignmentTitle: string; questionNumbers: number[] }[];
+            };
+            const results: string[] = [];
+            for (const q of args.queries) {
+              const text = input.questionLookup(q.assignmentTitle, q.questionNumbers);
+              if (text) {
+                results.push(`[${q.assignmentTitle} - ${q.questionNumbers.join(", ")}번]\n${text}`);
+              } else {
+                results.push(`[${q.assignmentTitle} - ${q.questionNumbers.join(", ")}번]\n시험지 데이터가 없습니다.`);
+              }
+            }
+            messages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              content: results.join("\n\n"),
+            });
+          } catch {
+            messages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              content: "조회 실패",
+            });
+          }
         }
       }
     }
 
-    userPrompt += `\n\n위 주차별 데이터를 시계열적으로 분석하고 출력 형식에 맞춰 작성하시오. 각 주차 간 변화와 패턴의 지속/극복에 초점을 맞출 것. 학습 조언이나 미래 계획은 쓰지 말 것. 현재 데이터 분석에만 집중할 것.`;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_tokens: 6000,
-      temperature: 0.7,
-    });
-
-    return response.choices[0]?.message?.content || generateMonthlyFallbackFeedback(input);
+    // 최대 라운드 초과 시 마지막 응답 사용
+    return generateMonthlyFallbackFeedback(input);
   } catch {
     return generateMonthlyFallbackFeedback(input);
   }

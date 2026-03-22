@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateMonthlyFeedback, type WeeklyAssignment } from "@/lib/gpt-feedback";
+import { generateMonthlyFeedback, type WeeklyAssignment, type QuestionLookupFn } from "@/lib/gpt-feedback";
 import { parseStoredExamData, extractQuestionsByNumbers, type ExamSection } from "@/lib/exam-parser";
 import { computeSubmissionWeights } from "@/lib/statistics";
 
@@ -270,20 +270,6 @@ export async function POST(req: NextRequest) {
             correctRate: questionCorrectRates.get(`${sub.assignmentId}:${a.questionNumber}`) ?? 0,
           }));
 
-        // 관련 문항만 추출 (틀린 문항 + 어려운 정답 문항)
-        const sections = examSectionsMap.get(sub.assignmentId);
-        let relevantQuestionsText: string | null = null;
-        if (sections) {
-          const impressiveNums = correctQuestions
-            .filter((q) => q.correctRate < 55)
-            .map((q) => q.questionNumber);
-          const wrongNums = wrongQuestions.map((q) => q.questionNumber);
-          const relevantNums = [...new Set([...wrongNums, ...impressiveNums])];
-          if (relevantNums.length > 0) {
-            relevantQuestionsText = extractQuestionsByNumbers(sections, relevantNums);
-          }
-        }
-
         return {
           title: sub.assignment.title,
           dueDate: dd,
@@ -293,7 +279,6 @@ export async function POST(req: NextRequest) {
           grade: analysis?.grade ?? null,
           wrongQuestions,
           correctQuestions,
-          relevantQuestionsText,
         };
       });
 
@@ -381,6 +366,18 @@ export async function POST(req: NextRequest) {
       })),
     }));
 
+    // RAG: questionLookup 함수 (GPT가 tool call로 문항 내용 조회)
+    const titleToIdMap = new Map<string, string>();
+    for (const a of assignments) titleToIdMap.set(a.title, a.id);
+
+    const questionLookup: QuestionLookupFn = (assignmentTitle, questionNumbers) => {
+      const aId = titleToIdMap.get(assignmentTitle);
+      if (!aId) return null;
+      const sections = examSectionsMap.get(aId);
+      if (!sections) return null;
+      return extractQuestionsByNumbers(sections, questionNumbers) || null;
+    };
+
     // AI 피드백 생성
     let aiFeedback = "";
     try {
@@ -394,6 +391,7 @@ export async function POST(req: NextRequest) {
         overallCorrectRate: avgCorrectRate,
         overallGrade: avgGrade,
         trend,
+        questionLookup,
       });
     } catch {
       aiFeedback = `${monthLabel} 분석: 평균 정답률 ${avgCorrectRate}%, ${weeklyData.length}주차 분석 완료.`;

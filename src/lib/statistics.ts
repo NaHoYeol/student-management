@@ -71,22 +71,29 @@ interface QInput {
 }
 
 // ─── 가중치 계산 헬퍼 ─────────────────────────────────────────
-// 실제 학생 데이터에 높은 가중치를 부여하여 시뮬레이션 결과를 보정
-// - 실제 학생: 1인당 가중치 1.0
-// - 시뮬레이션: 전체 합산 가중치 = 실제학생수 × AGENT_RATIO
-//   (실제 학생이 0명이면 각 1.0)
-const AGENT_RATIO = 0.5;
+// 실제 학생 데이터에 점진적으로 높은 가중치를 부여하여 시뮬레이션 결과를 보정
+// - 소수(1~2명): 시뮬레이션 안정성 유지, 실제 학생 영향 소폭 반영
+// - 중간(3~9명): 점진적으로 실제 데이터 비중 증가
+// - 충분(10명+): 실제 학생 ~67%, 시뮬레이션 ~33% 영향력
+const RAMP_STUDENTS = 10;       // 이 숫자 이상이면 가중치 완전 적용
+const TARGET_REAL_INFLUENCE = 0.67; // 최종 목표 실제 학생 영향력
 
 export function computeSubmissionWeights(
   realCount: number,
   agentCount: number
 ): { realWeight: number; agentWeight: number } {
-  if (realCount === 0) return { realWeight: 1, agentWeight: 1 };
-  const agentTotalWeight = realCount * AGENT_RATIO;
-  return {
-    realWeight: 1,
-    agentWeight: agentCount > 0 ? agentTotalWeight / agentCount : 0,
-  };
+  if (realCount === 0 || agentCount === 0) return { realWeight: 1, agentWeight: 1 };
+
+  // t: 0→1로 실학생 수에 비례하여 점진적 증가
+  const t = Math.min(realCount / RAMP_STUDENTS, 1);
+
+  // 자연 비율(가중치 없을 때)에서 목표 비율로 점진적 전환
+  const naturalInfluence = realCount / (realCount + agentCount);
+  const targetInfluence = t * TARGET_REAL_INFLUENCE + (1 - t) * naturalInfluence;
+
+  // realWeight=1 고정, agentWeight 역산
+  const agentWeight = (realCount * (1 - targetInfluence)) / (targetInfluence * agentCount);
+  return { realWeight: 1, agentWeight: Math.max(agentWeight, 0.001) };
 }
 
 // ─── 가중 백분위 ──────────────────────────────────────────────

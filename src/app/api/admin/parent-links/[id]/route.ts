@@ -38,13 +38,13 @@ export async function PUT(
       return NextResponse.json({ error: "학생을 선택해주세요." }, { status: 400 });
     }
 
-    // 연결할 학생이 이 강사의 학생인지 확인
+    // 연결할 학생이 실제 학생 계정인지 확인
     const student = await prisma.user.findUnique({
       where: { id: targetStudentId },
-      select: { instructorId: true, role: true },
+      select: { role: true },
     });
 
-    if (!student || student.role !== "STUDENT" || student.instructorId !== session.user.id) {
+    if (!student || student.role !== "STUDENT") {
       return NextResponse.json({ error: "해당 학생을 연결할 수 없습니다." }, { status: 403 });
     }
 

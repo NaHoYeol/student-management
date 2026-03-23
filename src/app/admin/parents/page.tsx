@@ -61,6 +61,9 @@ export default function AdminParentsPage() {
           l.id === linkId ? { ...l, status: "APPROVED", student: connectedStudent || null } : l
         )
       );
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "승인 처리에 실패했습니다.");
     }
   }
 
@@ -73,6 +76,9 @@ export default function AdminParentsPage() {
 
     if (res.ok) {
       setLinks((prev) => prev.map((l) => (l.id === linkId ? { ...l, status: "REJECTED" } : l)));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "거절 처리에 실패했습니다.");
     }
   }
 

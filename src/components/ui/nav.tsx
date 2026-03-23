@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -19,7 +19,7 @@ function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(next)}
-      className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+      className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100"
       title={`현재: ${label} (클릭하여 변경)`}
     >
       {theme === "dark" ? (
@@ -36,6 +36,40 @@ function ThemeToggle() {
         </svg>
       )}
     </button>
+  );
+}
+
+function NotificationBell() {
+  const [count, setCount] = useState(0);
+
+  const fetchCount = useCallback(() => {
+    fetch("/api/admin/notifications")
+      .then((r) => r.json())
+      .then((data) => setCount(data.pendingParents || 0))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchCount();
+    const interval = setInterval(fetchCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchCount]);
+
+  return (
+    <Link
+      href="/admin/parents"
+      className="relative flex h-8 w-8 items-center justify-center rounded-lg hover:bg-gray-100"
+      title="학부모 신청 알림"
+    >
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+      </svg>
+      {count > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+          {count > 9 ? "9+" : count}
+        </span>
+      )}
+    </Link>
   );
 }
 
@@ -101,6 +135,7 @@ export function Nav() {
         {/* 데스크탑 유저 정보 */}
         <div className="hidden items-center gap-2 sm:flex">
           <ThemeToggle />
+          {isAdmin && <NotificationBell />}
           <span className="text-sm text-black">
             {session.user.name}{" "}
             <span className="rounded bg-gray-100 px-2 py-0.5 text-xs">
@@ -115,8 +150,9 @@ export function Nav() {
           </button>
         </div>
 
-        {/* 모바일: 테마 토글 + 햄버거 */}
+        {/* 모바일: 알림 + 테마 토글 + 햄버거 */}
         <div className="flex items-center gap-1 sm:hidden">
+          {isAdmin && <NotificationBell />}
           <ThemeToggle />
           <button
             onClick={() => setMenuOpen(!menuOpen)}

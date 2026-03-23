@@ -18,12 +18,10 @@ export async function GET(req: NextRequest) {
   }
 
   // Verify approved parent link
-  const link = await prisma.parentLink.findUnique({
+  const link = await prisma.parentLink.findFirst({
     where: {
-      parentId_studentId: {
-        parentId: session.user.id,
-        studentId,
-      },
+      parentId: session.user.id,
+      studentId,
     },
   });
 

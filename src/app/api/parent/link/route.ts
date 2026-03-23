@@ -20,46 +20,29 @@ export async function GET() {
   return NextResponse.json(links);
 }
 
-// POST: Create a new parent-student link request
+// POST: Create a new parent link request (학부모가 자녀 정보를 직접 입력)
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user || session.user.role !== "PARENT") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { studentId } = (await req.json()) as { studentId: string };
-  if (!studentId) {
-    return NextResponse.json({ error: "studentId required" }, { status: 400 });
-  }
+  const { studentName, schoolName, gradeName } = (await req.json()) as {
+    studentName: string;
+    schoolName: string;
+    gradeName: string;
+  };
 
-  // Verify student exists
-  const student = await prisma.user.findUnique({
-    where: { id: studentId },
-    select: { id: true, role: true },
-  });
-
-  if (!student || student.role !== "STUDENT") {
-    return NextResponse.json({ error: "Student not found" }, { status: 404 });
-  }
-
-  // Check for existing link
-  const existing = await prisma.parentLink.findUnique({
-    where: {
-      parentId_studentId: {
-        parentId: session.user.id,
-        studentId,
-      },
-    },
-  });
-
-  if (existing) {
-    return NextResponse.json({ error: "이미 연결 요청이 존재합니다.", status: existing.status }, { status: 409 });
+  if (!studentName?.trim()) {
+    return NextResponse.json({ error: "자녀 이름을 입력해주세요." }, { status: 400 });
   }
 
   const link = await prisma.parentLink.create({
     data: {
       parentId: session.user.id,
-      studentId,
+      studentName: studentName.trim(),
+      schoolName: schoolName?.trim() || null,
+      gradeName: gradeName?.trim() || null,
     },
   });
 

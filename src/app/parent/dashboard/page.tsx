@@ -7,7 +7,7 @@ import Link from "next/link";
 interface MyLink {
   id: string;
   status: string;
-  student: { id: string; name: string | null; school: string | null; grade: string | null };
+  student: { id: string; name: string | null; school: string | null; grade: string | null } | null;
 }
 
 interface AssignmentResult {
@@ -34,14 +34,14 @@ export default function ParentDashboardPage() {
     fetch("/api/parent/link")
       .then((r) => r.json())
       .then((data) => {
-        const approved = (data as MyLink[]).filter((l) => l.status === "APPROVED");
+        const approved = (data as MyLink[]).filter((l) => l.status === "APPROVED" && l.student);
         setLinks(approved);
         if (approved.length === 0) {
           router.replace("/parent/setup");
           return;
         }
         // Auto-select first child
-        setSelectedChild(approved[0].student.id);
+        setSelectedChild(approved[0].student!.id);
         setLoading(false);
       })
       .catch(() => {
@@ -63,7 +63,7 @@ export default function ParentDashboardPage() {
 
   if (loading) return <p className="text-black">로딩 중...</p>;
 
-  const currentChild = links.find((l) => l.student.id === selectedChild);
+  const currentChild = links.find((l) => l.student?.id === selectedChild);
 
   // Summary stats
   const totalSubmitted = assignments.length;
@@ -85,8 +85,8 @@ export default function ParentDashboardPage() {
             className="rounded-lg border border-gray-300 p-2 text-sm"
           >
             {links.map((l) => (
-              <option key={l.student.id} value={l.student.id}>
-                {l.student.name || "이름 없음"} ({l.student.school} {l.student.grade})
+              <option key={l.student!.id} value={l.student!.id}>
+                {l.student!.name || "이름 없음"} ({l.student!.school} {l.student!.grade})
               </option>
             ))}
           </select>
@@ -95,7 +95,7 @@ export default function ParentDashboardPage() {
 
       {currentChild && (
         <p className="mb-4 text-sm text-gray-600">
-          {currentChild.student.name}님의 과제 현황
+          {currentChild.student?.name}님의 과제 현황
         </p>
       )}
 

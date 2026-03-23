@@ -1,77 +1,53 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-
-interface Instructor {
-  id: string;
-  name: string | null;
-  email: string;
-}
-
-interface Student {
-  id: string;
-  name: string | null;
-  school: string | null;
-  grade: string | null;
-}
 
 interface MyLink {
   id: string;
   status: string;
-  student: { id: string; name: string | null; school: string | null; grade: string | null };
+  studentName: string | null;
+  schoolName: string | null;
+  gradeName: string | null;
+  student: { id: string; name: string | null; school: string | null; grade: string | null } | null;
 }
 
 export default function ParentSetupPage() {
-  const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [instructors, setInstructors] = useState<Instructor[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
   const [myLinks, setMyLinks] = useState<MyLink[]>([]);
-  const [selectedInstructor, setSelectedInstructor] = useState("");
-  const [selectedStudent, setSelectedStudent] = useState("");
+  const [studentName, setStudentName] = useState("");
+  const [schoolName, setSchoolName] = useState("");
+  const [gradeName, setGradeName] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/parent/instructors").then((r) => r.json()),
-      fetch("/api/parent/link").then((r) => r.json()),
-    ]).then(([inst, links]) => {
-      setInstructors(inst);
-      setMyLinks(links);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    fetch("/api/parent/link")
+      .then((r) => r.json())
+      .then((links) => {
+        setMyLinks(links);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (!selectedInstructor) return;
-    fetch(`/api/parent/students?instructorId=${selectedInstructor}`)
-      .then((r) => r.json())
-      .then((data) => setStudents(data))
-      .catch(() => setStudents([]));
-  }, [selectedInstructor]);
-
   async function handleSubmit() {
-    if (!selectedStudent) return;
+    if (!studentName.trim()) return;
     setSubmitting(true);
     setMessage("");
 
     const res = await fetch("/api/parent/link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId: selectedStudent }),
+      body: JSON.stringify({ studentName, schoolName, gradeName }),
     });
 
     if (res.ok) {
-      setMessage("연결 요청이 전송되었습니다. 강사의 승인을 기다려주세요.");
-      // Refresh links
+      setMessage("신청이 완료되었습니다. 강사의 확인 후 연결해드리겠습니다.");
       const links = await fetch("/api/parent/link").then((r) => r.json());
       setMyLinks(links);
-      setStep(1);
-      setSelectedInstructor("");
-      setSelectedStudent("");
+      setStudentName("");
+      setSchoolName("");
+      setGradeName("");
     } else {
       const data = await res.json();
       setMessage(data.error || "요청 실패");
@@ -85,107 +61,104 @@ export default function ParentSetupPage() {
     <div>
       <h1 className="mb-6 text-2xl font-bold">자녀 관리</h1>
 
-      {/* 기존 연결 목록 */}
+      {/* 기존 신청 목록 */}
       {myLinks.length > 0 && (
         <div className="mb-8">
-          <h2 className="mb-3 text-lg font-semibold">연결된 자녀</h2>
+          <h2 className="mb-3 text-lg font-semibold">신청 현황</h2>
           <div className="space-y-2">
-            {myLinks.map((link) => (
-              <div key={link.id} className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm">
-                <div>
-                  <p className="font-medium">{link.student.name || "이름 없음"}</p>
-                  <p className="text-xs text-gray-500">
-                    {link.student.school} {link.student.grade}
-                  </p>
+            {myLinks.map((link) => {
+              const name = link.student?.name || link.studentName || "이름 없음";
+              const school = link.student?.school || link.schoolName || "";
+              const grade = link.student?.grade || link.gradeName || "";
+              return (
+                <div key={link.id} className="flex items-center justify-between rounded-lg bg-white p-4 shadow-sm">
+                  <div>
+                    <p className="font-medium">{name}</p>
+                    <p className="text-xs text-gray-500">
+                      {school} {grade}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                      link.status === "APPROVED"
+                        ? "bg-green-100 text-green-700"
+                        : link.status === "PENDING"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {link.status === "APPROVED" ? "승인됨" : link.status === "PENDING" ? "대기중" : "거절됨"}
+                  </span>
                 </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${
-                    link.status === "APPROVED"
-                      ? "bg-green-100 text-green-700"
-                      : link.status === "PENDING"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {link.status === "APPROVED" ? "승인됨" : link.status === "PENDING" ? "대기중" : "거절됨"}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* 새 연결 요청 */}
+      {/* 새 자녀 연결 신청 */}
       <div className="rounded-lg bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold">새 자녀 연결</h2>
+        <h2 className="mb-4 text-lg font-semibold">자녀 연결 신청</h2>
+        <p className="mb-4 text-sm text-gray-500">
+          자녀의 정보를 입력해주시면, 강사가 확인 후 연결해드립니다.
+        </p>
 
         {message && (
-          <div className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">
+          <div className={`mb-4 rounded-lg p-3 text-sm ${
+            message.includes("완료") ? "bg-blue-50 text-blue-700" : "bg-red-50 text-red-700"
+          }`}>
             {message}
           </div>
         )}
 
-        {/* Step 1: 강사 선택 */}
-        <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-black">
-            1단계: 강사 선택
-          </label>
-          <select
-            value={selectedInstructor}
-            onChange={(e) => {
-              setSelectedInstructor(e.target.value);
-              setSelectedStudent("");
-              setStep(e.target.value ? 2 : 1);
-            }}
-            className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
-          >
-            <option value="">강사를 선택하세요</option>
-            {instructors.map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.name || i.email}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Step 2: 학생 선택 */}
-        {step >= 2 && (
-          <div className="mb-4">
+        <div className="space-y-4">
+          <div>
             <label className="mb-1 block text-sm font-medium text-black">
-              2단계: 자녀 선택
+              자녀 이름 <span className="text-red-500">*</span>
             </label>
-            {students.length === 0 ? (
-              <p className="text-sm text-gray-500">해당 강사에 등록된 학생이 없습니다.</p>
-            ) : (
-              <select
-                value={selectedStudent}
-                onChange={(e) => {
-                  setSelectedStudent(e.target.value);
-                  if (e.target.value) setStep(3);
-                }}
-                className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
-              >
-                <option value="">자녀를 선택하세요</option>
-                {students.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name || "이름 없음"} ({s.school} {s.grade})
-                  </option>
-                ))}
-              </select>
-            )}
+            <input
+              type="text"
+              value={studentName}
+              onChange={(e) => setStudentName(e.target.value)}
+              placeholder="예: 홍길동"
+              className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
+            />
           </div>
-        )}
 
-        {/* Step 3: 전송 */}
-        {step >= 3 && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-black">
+              학교
+            </label>
+            <input
+              type="text"
+              value={schoolName}
+              onChange={(e) => setSchoolName(e.target.value)}
+              placeholder="예: OO고등학교"
+              className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-black">
+              학년
+            </label>
+            <input
+              type="text"
+              value={gradeName}
+              onChange={(e) => setGradeName(e.target.value)}
+              placeholder="예: 고2"
+              className="w-full rounded-lg border border-gray-300 p-2.5 text-sm"
+            />
+          </div>
+
           <button
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || !studentName.trim()}
             className="w-full rounded-lg bg-purple-600 py-3 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
           >
-            {submitting ? "요청 중..." : "연결 요청 보내기"}
+            {submitting ? "신청 중..." : "연결 신청하기"}
           </button>
-        )}
+        </div>
       </div>
     </div>
   );

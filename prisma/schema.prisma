@@ -216,14 +216,17 @@ model MonthlyReportStudent {
 model ParentLink {
   id        String   @id @default(cuid())
   parentId  String
-  studentId String
+  studentId String?
   status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
 
-  parent  User @relation("ParentLinks", fields: [parentId], references: [id], onDelete: Cascade)
-  student User @relation("LinkedParents", fields: [studentId], references: [id], onDelete: Cascade)
+  // 학부모가 직접 입력한 정보 (신청 시)
+  studentName String?
+  schoolName  String?
+  gradeName   String?
+
+  parent  User  @relation("ParentLinks", fields: [parentId], references: [id], onDelete: Cascade)
+  student User? @relation("LinkedParents", fields: [studentId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@unique([parentId, studentId])
 }

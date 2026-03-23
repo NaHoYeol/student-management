@@ -53,9 +53,18 @@ export default function StudentAssignmentsPage() {
 
   if (loading) return <p className="text-black">로딩 중...</p>;
 
+  // 마감일 1개월 초과 미제출 과제 제외
+  const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+  const visibleAssignments = assignments.filter((a) => {
+    const submitted = submissionMap.has(a.id);
+    if (submitted) return true;
+    if (!a.dueDate) return true;
+    return Date.now() - new Date(a.dueDate).getTime() < ONE_MONTH_MS;
+  });
+
   // 요약 통계
   const submittedCount = submissionMap.size;
-  const pendingCount = assignments.length - submittedCount;
+  const pendingCount = visibleAssignments.length - submittedCount;
   const scores = Array.from(submissionMap.values())
     .filter((s) => s.score != null && s.totalPoints)
     .map((s) => Math.round((s.score! / s.totalPoints!) * 100));
@@ -103,8 +112,8 @@ export default function StudentAssignmentsPage() {
       <div className="grid gap-3 sm:gap-4">
         {(() => {
           let filtered = categoryFilter === "ALL"
-            ? assignments
-            : assignments.filter((a) => a.category === categoryFilter);
+            ? visibleAssignments
+            : visibleAssignments.filter((a) => a.category === categoryFilter);
 
           if (categoryFilter === "OFFICIAL") {
             filtered = [...filtered].sort((a, b) => {
@@ -241,8 +250,8 @@ export default function StudentAssignmentsPage() {
         })}
         {(() => {
           const filtered = categoryFilter === "ALL"
-            ? assignments
-            : assignments.filter((a) => a.category === categoryFilter);
+            ? visibleAssignments
+            : visibleAssignments.filter((a) => a.category === categoryFilter);
           if (filtered.length > 0) return null;
           return (
             <p className="py-12 text-center text-black">

@@ -8,8 +8,8 @@
 }
 
 .dark {
-  --background: #111827;
-  --foreground: #f3f4f6;
+  --background: #0d1117;
+  --foreground: #e6edf3;
 }
 
 @theme inline {
@@ -26,97 +26,225 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ── 다크모드 글로벌 오버라이드 ── */
+/* ═══════════════════════════════════════════════
+   다크모드 — GitHub Dark 기반 색상 체계
 
-/* 페이지 배경 */
+   Surface 계층:
+     L0  #0d1117  페이지 배경
+     L1  #161b22  카드 / 컨테이너
+     L2  #21262d  카드 내부 헤더·섹션 (테이블 thead 등)
+     L3  #30363d  호버·활성 상태
+
+   Border:  #30363d  (L1 위에서 명확히 보임)
+   Text:    #e6edf3 (primary) / #8b949e (secondary)
+   ═══════════════════════════════════════════════ */
+
+/* ── 배경 ── */
+
+/* L0: 페이지 배경 */
 .dark .bg-gray-50 {
-  background-color: #111827 !important;
+  background-color: #0d1117 !important;
 }
 
-/* 카드 배경 */
+/* L1: 카드 배경 */
 .dark .bg-white {
-  background-color: #1f2937 !important;
+  background-color: #161b22 !important;
 }
 
-/* 텍스트 */
+/* L2: 카드 안에 있는 bg-gray-50 (테이블 thead, 섹션 배경) */
+.dark .bg-white .bg-gray-50,
+.dark .rounded-lg .bg-gray-50,
+.dark thead.bg-gray-50,
+.dark .bg-gray-50.rounded-md {
+  background-color: #21262d !important;
+}
+
+/* 배지·라벨 */
+.dark .bg-gray-100 {
+  background-color: #21262d !important;
+}
+
+/* ── 텍스트 ── */
 .dark .text-black {
-  color: #e5e7eb !important;
+  color: #e6edf3 !important;
+}
+.dark .text-gray-800 {
+  color: #c9d1d9 !important;
+}
+.dark .text-gray-700 {
+  color: #b1bac4 !important;
+}
+.dark .text-gray-600 {
+  color: #8b949e !important;
+}
+.dark .text-gray-500 {
+  color: #8b949e !important;
+}
+.dark .text-gray-400 {
+  color: #656d76 !important;
 }
 
-/* 테두리 */
+/* ── 테두리 — 가시성 핵심 ── */
 .dark .border-b,
 .dark .border-t,
-.dark .border {
-  border-color: #374151 !important;
+.dark .border,
+.dark .border-l,
+.dark .border-r {
+  border-color: #30363d !important;
 }
 .dark .border-gray-300 {
-  border-color: #4b5563 !important;
+  border-color: #30363d !important;
 }
 .dark .border-gray-200 {
-  border-color: #374151 !important;
+  border-color: #30363d !important;
 }
 .dark .border-dashed {
-  border-color: #4b5563 !important;
+  border-color: #30363d !important;
+}
+/* 테이블 행 구분선 강화 */
+.dark tr.border-b,
+.dark tbody tr {
+  border-color: #30363d !important;
+}
+.dark thead.border-b,
+.dark thead {
+  border-color: #30363d !important;
 }
 
-/* 입력 필드 */
+/* ── 입력 필드 ── */
 .dark input,
 .dark select,
 .dark textarea {
-  background-color: #374151 !important;
-  border-color: #4b5563 !important;
-  color: #f3f4f6 !important;
+  background-color: #0d1117 !important;
+  border-color: #30363d !important;
+  color: #e6edf3 !important;
 }
 .dark input::placeholder,
 .dark textarea::placeholder {
-  color: #9ca3af !important;
+  color: #656d76 !important;
+}
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: #58a6ff !important;
+  outline-color: #58a6ff !important;
 }
 
-/* 호버 */
-.dark .hover\:bg-gray-100:hover {
-  background-color: #374151 !important;
-}
+/* ── 호버·활성 ── */
+.dark .hover\:bg-gray-100:hover,
 .dark .hover\:bg-gray-50:hover {
-  background-color: #1f2937 !important;
+  background-color: #30363d !important;
 }
-.dark .active\:bg-gray-50:active {
-  background-color: #1f2937 !important;
-}
+.dark .active\:bg-gray-50:active,
 .dark .active\:bg-gray-100:active {
-  background-color: #374151 !important;
+  background-color: #30363d !important;
 }
 .dark .active\:bg-gray-200:active {
-  background-color: #4b5563 !important;
+  background-color: #3d444d !important;
 }
 
-/* 그림자 */
+/* ── 그림자 → 테두리 강조 (다크에선 shadow 대신 border가 효과적) ── */
 .dark .shadow-sm {
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3) !important;
+  box-shadow: none !important;
+  outline: 1px solid #21262d;
+}
+.dark .shadow-lg {
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4) !important;
 }
 
-/* 배지/라벨 배경 */
-.dark .bg-gray-100 {
-  background-color: #374151 !important;
-}
-.dark .bg-gray-50 {
-  background-color: #1f2937 !important;
-}
-
-/* 알림 배경 */
+/* ── 색상 배지 (어두운 톤 + 밝은 텍스트 유지) ── */
 .dark .bg-blue-50 {
-  background-color: #1e3a5f !important;
+  background-color: #0c2d6b !important;
 }
-.dark .bg-red-50 {
-  background-color: #5f1e1e !important;
+.dark .bg-blue-100 {
+  background-color: #0c2d6b !important;
 }
-.dark .bg-green-50 {
-  background-color: #1e3a2a !important;
+.dark .text-blue-700 {
+  color: #79c0ff !important;
 }
-.dark .bg-yellow-50 {
-  background-color: #3a351e !important;
+.dark .text-blue-800 {
+  color: #79c0ff !important;
 }
 
-/* 모바일에서 number input 스피너 제거 */
+.dark .bg-green-50 {
+  background-color: #0a3622 !important;
+}
+.dark .bg-green-100 {
+  background-color: #0a3622 !important;
+}
+.dark .text-green-700 {
+  color: #7ee787 !important;
+}
+
+.dark .bg-red-50 {
+  background-color: #4a1219 !important;
+}
+.dark .bg-red-100 {
+  background-color: #4a1219 !important;
+}
+.dark .text-red-700 {
+  color: #ffa198 !important;
+}
+
+.dark .bg-yellow-50 {
+  background-color: #3d2e00 !important;
+}
+.dark .bg-yellow-100 {
+  background-color: #3d2e00 !important;
+}
+.dark .text-yellow-700 {
+  color: #e3b341 !important;
+}
+
+.dark .bg-purple-50 {
+  background-color: #2d1b4e !important;
+}
+.dark .bg-purple-100 {
+  background-color: #2d1b4e !important;
+}
+.dark .text-purple-700 {
+  color: #d2a8ff !important;
+}
+
+.dark .bg-orange-50 {
+  background-color: #3d2200 !important;
+}
+.dark .bg-indigo-100 {
+  background-color: #1c2d5e !important;
+}
+.dark .text-indigo-700 {
+  color: #a5b4fc !important;
+}
+
+/* ── 링크 색상 ── */
+.dark .text-blue-600 {
+  color: #58a6ff !important;
+}
+.dark .text-green-600 {
+  color: #3fb950 !important;
+}
+.dark .text-red-600 {
+  color: #f85149 !important;
+}
+.dark .text-red-500 {
+  color: #f85149 !important;
+}
+.dark .text-purple-600 {
+  color: #bc8cff !important;
+}
+.dark .text-yellow-600 {
+  color: #e3b341 !important;
+}
+.dark .text-orange-600 {
+  color: #f0883e !important;
+}
+
+/* ── 버튼 (색상 버튼은 그대로 유지, 비활성 조정) ── */
+.dark .disabled\:opacity-50:disabled {
+  opacity: 0.4 !important;
+}
+
+/* ── 모바일에서 number input 스피너 제거 ── */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -126,6 +254,7 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
+/* ── 인쇄 ── */
 @media print {
   body {
     background: white !important;

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import Image from "next/image";
 
-type RoleOption = "ADMIN" | "STUDENT" | "PARENT";
+type RoleOption = "ADMIN" | "STUDENT" | "PARENT" | "SUPERADMIN";
 
 const roles: { value: RoleOption; label: string; desc: string; color: string }[] = [
   { value: "ADMIN", label: "강사", desc: "과제 출제 및 학생 관리", color: "border-blue-500 bg-blue-50" },
@@ -36,7 +36,7 @@ export default function SignInPage() {
         </p>
 
         {/* 역할 선택 */}
-        <div className="mb-6 grid grid-cols-3 gap-2">
+        <div className="mb-4 grid grid-cols-3 gap-2">
           {roles.map((r) => (
             <button
               key={r.value}
@@ -51,6 +51,21 @@ export default function SignInPage() {
               <p className="mt-0.5 text-[11px] text-gray-600">{r.desc}</p>
             </button>
           ))}
+        </div>
+
+        {/* 관리자 로그인 */}
+        <div className="mb-6 border-t pt-3">
+          <button
+            onClick={() => setSelectedRole("SUPERADMIN")}
+            className={`w-full rounded-lg border-2 px-3 py-2 text-center transition ${
+              selectedRole === "SUPERADMIN"
+                ? "border-red-500 bg-red-50 ring-2 ring-offset-1"
+                : "border-gray-200 hover:border-gray-300"
+            }`}
+          >
+            <p className="text-xs font-semibold text-black">관리자</p>
+            <p className="text-[10px] text-gray-600">강사 계정 승인 및 시스템 관리</p>
+          </button>
         </div>
 
         <div className="flex flex-col gap-3">

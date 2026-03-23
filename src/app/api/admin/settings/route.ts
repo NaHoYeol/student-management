@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isAdmin } from "@/lib/role-check";
 
-// GET: Get settings (Admin only) - returns masked API key
+// GET: Get settings (Admin only) - returns masked API key (per-instructor)
 export async function GET() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
     const setting = await prisma.setting.findUnique({
-      where: { key: "openai_api_key" },
+      where: { key_userId: { key: "openai_api_key", userId: session.user.id } },
     });
 
     const value = setting?.value || "";
@@ -25,10 +26,10 @@ export async function GET() {
   }
 }
 
-// PUT: Update API key (Admin only)
+// PUT: Update API key (Admin only, per-instructor)
 export async function PUT(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -36,9 +37,9 @@ export async function PUT(req: NextRequest) {
 
   try {
     await prisma.setting.upsert({
-      where: { key: "openai_api_key" },
+      where: { key_userId: { key: "openai_api_key", userId: session.user.id } },
       update: { value: apiKey },
-      create: { key: "openai_api_key", value: apiKey },
+      create: { key: "openai_api_key", value: apiKey, userId: session.user.id },
     });
 
     return NextResponse.json({ success: true });

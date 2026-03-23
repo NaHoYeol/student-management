@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { gradeSubmission } from "@/lib/grading";
+import { isAdmin } from "@/lib/role-check";
 
 // GET: Get submissions (Admin sees all, Student sees own)
 export async function GET(req: NextRequest) {
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const where =
-      session.user.role === "ADMIN"
+      isAdmin(session.user.role)
         ? assignmentId
           ? { assignmentId, isAgent: false }
           : { isAgent: false }
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
   } catch {
     // Fallback: query without isAgent filter (in case column doesn't exist yet)
     const where =
-      session.user.role === "ADMIN"
+      isAdmin(session.user.role)
         ? assignmentId
           ? { assignmentId }
           : {}

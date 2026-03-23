@@ -1,10 +1,20 @@
 import OpenAI from "openai";
 import { prisma } from "./prisma";
 
-async function getApiKey(): Promise<string | null> {
+async function getApiKey(instructorId?: string): Promise<string | null> {
   try {
-    const setting = await prisma.setting.findUnique({ where: { key: "openai_api_key" } });
-    return setting?.value || null;
+    // 강사별 키 우선 조회
+    if (instructorId) {
+      const perUser = await prisma.setting.findUnique({
+        where: { key_userId: { key: "openai_api_key", userId: instructorId } },
+      });
+      if (perUser?.value) return perUser.value;
+    }
+    // fallback: 글로벌 키 (userId가 null인 것)
+    const global = await prisma.setting.findFirst({
+      where: { key: "openai_api_key", userId: null },
+    });
+    return global?.value || null;
   } catch {
     return null;
   }
@@ -53,8 +63,8 @@ export interface FeedbackInput {
   questionReference?: QuestionReference[];
 }
 
-export async function generateFeedback(input: FeedbackInput): Promise<string> {
-  const apiKey = await getApiKey();
+export async function generateFeedback(input: FeedbackInput, instructorId?: string): Promise<string> {
+  const apiKey = await getApiKey(instructorId);
   if (!apiKey || apiKey === "x") {
     return generateFallbackFeedback(input);
   }
@@ -259,8 +269,8 @@ export interface MonthlyFeedbackInput {
   questionLookup?: QuestionLookupFn;
 }
 
-export async function generateMonthlyFeedback(input: MonthlyFeedbackInput): Promise<string> {
-  const apiKey = await getApiKey();
+export async function generateMonthlyFeedback(input: MonthlyFeedbackInput, instructorId?: string): Promise<string> {
+  const apiKey = await getApiKey(instructorId);
   if (!apiKey || apiKey === "x") {
     return generateMonthlyFallbackFeedback(input);
   }

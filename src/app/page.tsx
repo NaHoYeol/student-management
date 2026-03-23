@@ -26,7 +26,7 @@ export default function Home() {
     const pendingRole = getCookie("pending-role");
 
     async function applyRole() {
-      if (pendingRole && ["ADMIN", "STUDENT", "PARENT"].includes(pendingRole)) {
+      if (pendingRole && ["ADMIN", "STUDENT", "PARENT", "SUPERADMIN"].includes(pendingRole)) {
         // Try to set role for new users
         try {
           await fetch("/api/auth/set-role", {
@@ -45,7 +45,9 @@ export default function Home() {
       const sess = await res.json();
       const role = sess?.user?.role || session?.user?.role;
 
-      if (role === "ADMIN") {
+      if (role === "SUPERADMIN") {
+        router.replace("/superadmin/instructors");
+      } else if (role === "ADMIN") {
         router.replace("/admin/dashboard");
       } else if (role === "PARENT") {
         router.replace("/parent/dashboard");

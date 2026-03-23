@@ -4,11 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { generateMonthlyFeedback, type WeeklyAssignment, type QuestionLookupFn } from "@/lib/gpt-feedback";
 import { parseStoredExamData, extractQuestionsByNumbers, type ExamSection } from "@/lib/exam-parser";
 import { computeSubmissionWeights } from "@/lib/statistics";
+import { isAdmin } from "@/lib/role-check";
 
 // GET: 월 목록 + 각 월의 대상 학생 수 + 상태
 export async function GET() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -82,7 +83,7 @@ export async function GET() {
 // POST: 분석 시작 또는 게시
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -392,7 +393,7 @@ export async function POST(req: NextRequest) {
         overallGrade: avgGrade,
         trend,
         questionLookup,
-      });
+      }, session!.user.id);
     } catch {
       aiFeedback = `${monthLabel} 분석: 평균 정답률 ${avgCorrectRate}%, ${weeklyData.length}주차 분석 완료.`;
     }

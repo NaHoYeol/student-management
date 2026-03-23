@@ -5,6 +5,7 @@ import { generateAllAgentSubmissions, generateAgentsFromTeacherAnalysis } from "
 import type { TeacherQuestionAnalysis } from "@/lib/agent-simulation";
 import { parseStoredExamData, sectionsToMarkdown } from "@/lib/exam-parser";
 import OpenAI from "openai";
+import { isAdmin } from "@/lib/role-check";
 
 // GET: Get agent count for an assignment
 export async function GET(
@@ -12,7 +13,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -157,7 +158,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -188,11 +189,20 @@ export async function POST(
     });
   }
 
-  // API 키 확인
+  // API 키 확인 (강사별 키 → 글로벌 키 fallback)
   let apiKey: string | null = null;
   try {
-    const setting = await prisma.setting.findUnique({ where: { key: "openai_api_key" } });
-    apiKey = setting?.value || null;
+    const perUser = await prisma.setting.findUnique({
+      where: { key_userId: { key: "openai_api_key", userId: session!.user.id } },
+    });
+    if (perUser?.value) {
+      apiKey = perUser.value;
+    } else {
+      const global = await prisma.setting.findFirst({
+        where: { key: "openai_api_key", userId: null },
+      });
+      apiKey = global?.value || null;
+    }
   } catch { /* ignore */ }
 
   // 시험지 내용 준비
@@ -313,7 +323,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

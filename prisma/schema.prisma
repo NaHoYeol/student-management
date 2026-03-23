@@ -7,6 +7,7 @@ datasource db {
 }
 
 enum Role {
+  SUPERADMIN
   ADMIN
   STUDENT
   PARENT
@@ -25,6 +26,12 @@ model User {
   classDay  String?
   classTime String?
 
+  // 강사 프로필
+  subject     String?
+  academyName String?
+  isApproved  Boolean   @default(false)
+  approvedAt  DateTime?
+
   instructorId String?
   instructor   User?  @relation("InstructorStudents", fields: [instructorId], references: [id])
   students     User[] @relation("InstructorStudents")
@@ -36,6 +43,7 @@ model User {
   analysisResults StudentAnalysisResult[]
   parentLinks     ParentLink[] @relation("ParentLinks")
   linkedParents   ParentLink[] @relation("LinkedParents")
+  settings        Setting[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -146,9 +154,13 @@ model ClassOption {
 }
 
 model Setting {
-  id    String @id @default(cuid())
-  key   String @unique
-  value String
+  id     String  @id @default(cuid())
+  key    String
+  value  String
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([key, userId])
 }
 
 model SubmissionAnswer {

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import OpenAI from "openai";
 import { prepareChunks, type TextChunk } from "@/lib/exam-chunker";
 import type { ExamSection, ExamData } from "@/lib/exam-parser";
+import { isAdmin } from "@/lib/role-check";
 
 // ── GPT 시스템 프롬프트: COT 기반 단계별 분류 ──
 
@@ -173,7 +174,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -185,11 +186,20 @@ export async function POST(
     return NextResponse.json({ error: "추출된 텍스트가 비어있습니다." }, { status: 400 });
   }
 
-  // API 키 확인
+  // API 키 확인 (강사별 키 → 글로벌 키 fallback)
   let apiKey: string | null = null;
   try {
-    const setting = await prisma.setting.findUnique({ where: { key: "openai_api_key" } });
-    apiKey = setting?.value || null;
+    const perUser = await prisma.setting.findUnique({
+      where: { key_userId: { key: "openai_api_key", userId: session.user.id } },
+    });
+    if (perUser?.value) {
+      apiKey = perUser.value;
+    } else {
+      const global = await prisma.setting.findFirst({
+        where: { key: "openai_api_key", userId: null },
+      });
+      apiKey = global?.value || null;
+    }
   } catch {
     // ignore
   }

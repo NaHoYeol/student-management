@@ -5,6 +5,7 @@ import { estimateGrade } from "@/lib/agent-simulation";
 import { generateFeedback } from "@/lib/gpt-feedback";
 import { parseStoredExamData, sectionsToMarkdown } from "@/lib/exam-parser";
 import { computeWeightedQuestionRates } from "@/lib/statistics";
+import { isAdmin } from "@/lib/role-check";
 
 // GET: Get individual student analysis for an assignment
 // Supports ?studentId=xxx for admin to view specific student
@@ -18,11 +19,11 @@ export async function GET(
   }
 
   const { id: assignmentId } = await params;
-  const isAdmin = session.user.role === "ADMIN";
+  const isAdminRole = isAdmin(session.user.role);
 
   // Admin can view any student's analysis via ?studentId=xxx
   const url = new URL(req.url);
-  const targetStudentId = isAdmin
+  const targetStudentId = isAdminRole
     ? url.searchParams.get("studentId") || session.user.id
     : session.user.id;
 
@@ -210,7 +211,7 @@ export async function GET(
     wrongQuestions,
     weakPattern,
     questionReference,
-  });
+  }, assignment.createdById);
 
   // Per-question breakdown with correct rates
   const questionBreakdown = assignment.questions.map((q) => {

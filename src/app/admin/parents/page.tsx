@@ -25,8 +25,10 @@ export default function AdminParentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"ALL" | "PENDING" | "APPROVED" | "REJECTED">("ALL");
-  // 각 PENDING 링크별 선택된 학생 ID
+  // PENDING 링크별 선택된 학생 ID
   const [selectedStudents, setSelectedStudents] = useState<Record<string, string>>({});
+  // APPROVED 링크 수정 모드: linkId → 선택된 studentId
+  const [editingLinks, setEditingLinks] = useState<Record<string, string>>({});
 
   useEffect(() => {
     Promise.all([
@@ -82,6 +84,45 @@ export default function AdminParentsPage() {
     }
   }
 
+  function startEdit(linkId: string, currentStudentId: string) {
+    setEditingLinks((prev) => ({ ...prev, [linkId]: currentStudentId }));
+  }
+
+  function cancelEdit(linkId: string) {
+    setEditingLinks((prev) => {
+      const next = { ...prev };
+      delete next[linkId];
+      return next;
+    });
+  }
+
+  async function saveEdit(linkId: string) {
+    const studentId = editingLinks[linkId];
+    if (!studentId) {
+      alert("연결할 학생을 선택해주세요.");
+      return;
+    }
+
+    const res = await fetch(`/api/admin/parent-links/${linkId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "APPROVED", studentId }),
+    });
+
+    if (res.ok) {
+      const connectedStudent = students.find((s) => s.id === studentId);
+      setLinks((prev) =>
+        prev.map((l) =>
+          l.id === linkId ? { ...l, student: connectedStudent || null } : l
+        )
+      );
+      cancelEdit(linkId);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "수정에 실패했습니다.");
+    }
+  }
+
   if (loading) return <p className="text-black">로딩 중...</p>;
 
   const filtered = filter === "ALL" ? links : links.filter((l) => l.status === filter);
@@ -128,7 +169,6 @@ export default function AdminParentsPage() {
       {/* 목록 */}
       <div className="space-y-3">
         {filtered.map((link) => {
-          // 승인된 경우: 연결된 학생 정보, 아닌 경우: 학부모가 입력한 정보
           const displayName = link.student?.name || link.studentName || "이름 없음";
           const displaySchool = link.student?.school || link.schoolName || "";
           const displayGrade = link.student?.grade || link.gradeName || "";
@@ -212,10 +252,59 @@ export default function AdminParentsPage() {
                 </div>
               )}
 
-              {/* APPROVED: 연결된 학생 표시 */}
-              {link.status === "APPROVED" && link.student && (
-                <div className="mt-2 text-xs text-green-600">
-                  연결된 학생: {link.student.name} ({link.student.school} {link.student.grade})
+              {/* APPROVED: 연결된 학생 + 수정 기능 */}
+              {link.status === "APPROVED" && (
+                <div className="mt-3 border-t pt-3">
+                  {editingLinks[link.id] !== undefined ? (
+                    /* 수정 모드 */
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-600">
+                        학생 변경
+                      </label>
+                      <select
+                        value={editingLinks[link.id] || ""}
+                        onChange={(e) =>
+                          setEditingLinks((prev) => ({ ...prev, [link.id]: e.target.value }))
+                        }
+                        className="mb-2 w-full rounded-lg border border-gray-300 p-2 text-sm"
+                      >
+                        <option value="">학생을 선택하세요</option>
+                        {students.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name || "이름 없음"} ({s.school} {s.grade})
+                          </option>
+                        ))}
+                      </select>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => saveEdit(link.id)}
+                          disabled={!editingLinks[link.id]}
+                          className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          저장
+                        </button>
+                        <button
+                          onClick={() => cancelEdit(link.id)}
+                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-50"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* 보기 모드 */
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-green-600">
+                        연결된 학생: {link.student?.name || "이름 없음"} ({link.student?.school} {link.student?.grade})
+                      </p>
+                      <button
+                        onClick={() => startEdit(link.id, link.student?.id || "")}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                      >
+                        수정
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
